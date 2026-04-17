@@ -1,0 +1,50 @@
+import type { Partida, ResumenPresupuesto } from '@/types'
+
+export function totalPartida(cantidad: number, precioUnitario: number): number {
+  return cantidad * precioUnitario
+}
+
+export function subtotal(partidas: Partida[]): number {
+  return partidas.reduce((acc, p) => acc + (p.total ?? 0), 0)
+}
+
+export function calcularITBIS(base: number, pct = 0.18): number {
+  return base * pct
+}
+
+export interface ResumenOptions {
+  porcentajeOverhead?: number
+  aplicarITBIS?: boolean
+}
+
+export function resumenPresupuesto(
+  partidas: Partida[],
+  options: ResumenOptions = {}
+): ResumenPresupuesto {
+  const { porcentajeOverhead = 0, aplicarITBIS = false } = options
+  const sub = Number(subtotal(partidas)) || 0
+  const overheadPct = Number(porcentajeOverhead) || 0
+  const costoOverhead = sub * (overheadPct / 100)
+  const baseITBIS = sub + costoOverhead
+  const montoITBIS = aplicarITBIS ? calcularITBIS(baseITBIS) : 0
+  const total = baseITBIS + montoITBIS
+
+  return {
+    subtotal: sub,
+    costoOverhead,
+    baseITBIS,
+    montoITBIS,
+    total,
+    porcentajeOverhead,
+    aplicarITBIS,
+  }
+}
+
+export function formatRD(valor: number | null | undefined): string {
+  const num = Number(valor)
+  if (isNaN(num)) return 'RD$ 0.00'
+  return `RD$ ${num.toLocaleString('es-DO', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}

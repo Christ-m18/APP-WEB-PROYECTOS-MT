@@ -1,0 +1,108 @@
+.sidebar {
+  width: 260px;
+  background: white;
+  border-right: 1px solid var(--color-border);
+  padding: 2rem 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.collapsed {
+  width: 88px;
+}
+
+.sidebar:hover {
+  width: 260px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  transition: all 200ms ease;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+}
+
+.link:hover {
+  background: #f1f5f9;
+  color: var(--color-primary);
+  transform: translateX(4px);
+}
+
+.active {
+  background: #f5f3ff; /* Indigo 50 */
+  color: var(--color-primary);
+  box-shadow: inset 4px 0 0 -1px var(--color-primary);
+}
+
+.active .icon {
+  color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+.icon {
+  font-size: 1.25rem;
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: all 200ms ease;
+}
+
+.label {
+  transition: opacity 200ms ease, transform 200ms ease;
+  opacity: 1;
+}
+
+.collapsed:not(:hover) .label {
+  opacity: 0;
+  transform: translateX(-10px);
+  pointer-events: none;
+}
+
+.logoutSection {
+  margin-top: auto;
+  padding: 1.5rem 1rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.btnLogOut {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  font-size: 0.925rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 200ms ease;
+}
+
+.btnLogOut:hover {
+  background: #fef2f2;
+  transform: translateX(4px);
+}

@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"C:\\\\Users\\\\Christopher Rosario\\\\Documents\\\\Projects\\\\SOFTWARE_DEVELOPMENT_PROJECTS\\\\MT-PRESUPUESTOS-SIE\" /s /b)",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\Users\\\\Christopher Rosario\\\\Documents\\\\Projects\\\\SOFTWARE_DEVELOPMENT_PROJECTS\\\\MT-PRESUPUESTOS-SIE\\\\\" /s /b\")",
+      "Bash(python3:*)",
+      "Bash(py --version)",
+      "Bash(node -e \"console.log\\('node works'\\)\")",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(powershell:*)",
+      "mcp__claude_ai_Supabase__get_organization",
+      "Bash(pwsh:*)",
+      "Bash(node -e \"const XLSX = require\\('xlsx'\\); const wb = XLSX.readFile\\('Estructuras MT/ANALISIS DE COSTO.xlsx'\\); console.log\\(JSON.stringify\\({sheets: wb.SheetNames, firstSheet: wb.Sheets[wb.SheetNames[0]]}, null, 2\\)\\);\")",
+      "Bash(node:*)",
+      "mcp__claude_ai_Supabase__list_organizations",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(du -sh .)",
+      "Bash(stat -c \"%s\" .)",
+      "Bash(npm install:*)",
+      "Bash(npm list:*)",
+      "Bash(dir \"C:\\\\Users\\\\Christopher Rosario\\\\Documents\\\\Projects\\\\SOFTWARE_DEVELOPMENT_PROJECTS\\\\MT-PRESUPUESTOS-SIE\\\\node_modules\\\\typescript\")",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\Users\\\\Christopher Rosario\\\\Documents\\\\Projects\\\\SOFTWARE_DEVELOPMENT_PROJECTS\\\\MT-PRESUPUESTOS-SIE\\\\node_modules\\\\\" 2>&1\")",
+      "Read(//tmp/**)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(python delete_old_config.py)",
+      "Bash(ls tsconfig*.json vite.config.ts)",
+      "Bash(npm --version)"
+    ]
+  }
+}

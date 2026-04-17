@@ -1,0 +1,177 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3rem;
+}
+
+.title { 
+  font-size: 1.75rem; 
+  font-weight: 900; 
+  color: var(--color-text); 
+  letter-spacing: -0.02em;
+}
+
+.btnNew {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white;
+  padding: 0.85rem 1.75rem;
+  border-radius: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btnNew:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
+}
+
+.searchBar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.searchInput {
+  flex: 1;
+  background: #f8fafc;
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.8rem 1.25rem;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.searchInput:focus {
+  background: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
+}
+
+.tableContainer {
+  background: white;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead tr { 
+  background: #fbfcfe;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.table th { 
+  padding: 1.25rem 1.5rem; 
+  text-align: left;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.table td { 
+  padding: 1.25rem 1.5rem; 
+  border-bottom: 1px solid #f1f5f9; 
+  vertical-align: middle;
+}
+
+.table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.table tbody tr:hover { 
+  background: #f8fafc; 
+}
+
+.nombre { 
+  font-weight: 800; 
+  color: var(--color-text); 
+  font-size: 1rem;
+}
+
+.cliente {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge.blue  { background: #eff6ff; color: #1d4ed8; border: 1.5px solid #dbeafe; }
+.badge.green { background: #ecfdf5; color: #059669; border: 1.5px solid #d1fae5; }
+.badge.red   { background: #fef2f2; color: #dc2626; border: 1.5px solid #fee2e2; }
+.badge.gray  { background: #f1f5f9; color: #475569; border: 1.5px solid #e2e8f0; }
+
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btnEdit { 
+  background: #f5f3ff; 
+  color: var(--color-primary); 
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  border: 1.5px solid #e0e7ff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnEdit:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.btnDel { 
+  background: #fff1f2; 
+  color: #e11d48; 
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  border: 1.5px solid #ffe4e6;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnDel:hover {
+  background: #e11d48;
+  color: white;
+  border-color: #e11d48;
+  transform: translateY(-1px);
+}
