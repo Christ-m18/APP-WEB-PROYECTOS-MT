@@ -9,6 +9,7 @@ export interface Perfil {
   email: string
   rol: string
   activo: boolean
+  avatar_url?: string | null
 }
 
 export interface Material {

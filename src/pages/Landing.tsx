@@ -1,73 +1,118 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Zap, Shield, BarChart3, Globe, ArrowRight, UserPlus, Cpu } from 'lucide-react'
+import { Zap, Shield, BarChart3, ArrowRight, Cpu, MousePointerClick, ShieldCheck, FileCheck } from 'lucide-react'
 import styles from './Landing.module.css'
 
 export default function Landing() {
   const navigate = useNavigate()
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Seguimiento ultra-preciso usando píxeles directos
+      document.documentElement.style.setProperty('--mouse-x', `${e.clientX}px`)
+      document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  const features = [
+    { 
+      title: 'Cálculo Real-Time', 
+      desc: 'Procesamiento instantáneo de costos y materiales.',
+      icon: <Zap size={24} /> 
+    },
+    { 
+      title: 'Estándar SIE RD', 
+      desc: 'Normativa oficial de la Superintendencia 2024.',
+      icon: <BarChart3 size={24} /> 
+    },
+    { 
+      title: 'Exportación Pro', 
+      desc: 'Generación de reportes PDF de alta fidelidad.',
+      icon: <FileCheck size={24} /> 
+    },
+    { 
+      title: 'Seguridad TLS', 
+      desc: 'Cifrado de datos de grado bancario (AES-256).',
+      icon: <ShieldCheck size={24} /> 
+    }
+  ]
+
   return (
     <div className={styles.landing}>
-      {/* Orbes de fondo dinámicos */}
+      <div className={styles.interactiveGrid} />
       <div className={styles.orb1} />
       <div className={styles.orb2} />
-      <div className={styles.orb3} />
 
-      <motion.div 
-        className={styles.content}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-      >
-        {/* Logo / Brand Central */}
-        <div className={styles.brand}>
-          <motion.div 
-            className={styles.logoCircle}
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 4, repeat: Infinity }}
-          >
-            <Cpu size={48} color="var(--color-accent)" />
-          </motion.div>
-          <h1 className={styles.title}>MT Presupuestos</h1>
-          <span className={styles.badge}>SIE Pro</span>
-        </div>
+      <div className={styles.content}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className={styles.logoCircle}
+        >
+          <Cpu size={42} color="var(--color-primary)" strokeWidth={2.5} />
+        </motion.div>
 
-        <p className={styles.subtitle}>
-          GESTIÓN PROFESIONAL DE PROYECTOS ELÉCTRICOS
-        </p>
-        
-        <p className={styles.description}>
-          Control total sobre el catálogo oficial de estructuras de la 
-          <strong> Superintendencia de Electricidad (SIE)</strong>. 
-          Presupuestos de media tensión con precisión quirúrgica y una interfaz moderna.
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <div className={styles.badge}>
+            <MousePointerClick size={14} /> <span>SISTEMA DE INGENIERÍA SIE PRO</span>
+          </div>
+          <h1 className={styles.title}>
+            Presupuestos de <span>Media Tensión</span>
+          </h1>
+          <p className={styles.subtitle}>
+            La plataforma técnica líder para la valorización de proyectos eléctricos en República Dominicana. 
+            Precisión, normativa y rapidez en un solo lugar.
+          </p>
+        </motion.div>
 
-        {/* Feature Grid pills */}
-        <div className={styles.features}>
-          <div className={styles.pill}><Zap size={14} className="mr-1" /> Cálculo en Tiempo Real</div>
-          <div className={styles.pill}><Shield size={14} className="mr-1" /> Seguridad Empresarial</div>
-          <div className={styles.pill}><BarChart3 size={14} className="mr-1" /> Estándar SIE RD</div>
-          <div className={styles.pill}><Globe size={14} className="mr-1" /> Exportación PDF</div>
-        </div>
-
-        {/* CTA Actions */}
-        <div className={styles.actions}>
+        <motion.div 
+          className={styles.actions}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
           <button className={styles.btnPrimary} onClick={() => void navigate('/login')}>
-            INGRESAR AL SISTEMA <ArrowRight size={18} className="ml-2" />
+            INGRESAR AL SISTEMA <ArrowRight size={18} strokeWidth={3} />
           </button>
           <button className={styles.btnSecondary} onClick={() => void navigate('/registro')}>
-            CREAR MI CUENTA <UserPlus size={18} className="ml-2" />
+            SOLICITAR ACCESO
           </button>
-        </div>
+        </motion.div>
+
+        {/* Feature row - Ahora con descripciones */}
+        <motion.div 
+          className={styles.featureRow}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6, duration: 1 }}
+        >
+          {features.map((f, i) => (
+            <div key={i} className={styles.featureItem}>
+              <span className={styles.featureIconSmall}>{f.icon}</span>
+              <div className={styles.featureTextContainer}>
+                <span className={styles.featureTextSmall}>{f.title}</span>
+                <p className={styles.featureDescriptionSmall}>{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
 
         <div className={styles.footer}>
-          <p>© {new Date().getFullYear()} MT Presupuestos SIE · Dominicana Digital</p>
-          <div className="flex gap-4 mt-2 opacity-40 text-[10px] tracking-widest uppercase">
-            <span>Status: Operational</span>
-            <span>Version: 2.1.0-SAPPHIRE</span>
+          <span>© {new Date().getFullYear()} MT Presupuestos SIE</span>
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <span>DOMINICANA DIGITAL</span>
+            <span>v2.9.0-GOLD</span>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

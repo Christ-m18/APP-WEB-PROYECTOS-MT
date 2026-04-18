@@ -180,12 +180,45 @@ export async function upsertPerfil(perfil: Partial<Perfil>): Promise<Perfil> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No authenticated user')
 
+  // Filtramos los campos permitidos y nos aseguramos de incluir el email
+  const safeData: Record<string, unknown> = {
+    nombre: perfil.nombre,
+    apellido: perfil.apellido,
+    empresa: perfil.empresa,
+    telefono: perfil.telefono,
+    email: perfil.email || user.email, // Fallback al email de la sesión
+  }
+  if (perfil.avatar_url !== undefined) {
+    safeData.avatar_url = perfil.avatar_url
+  }
+  
   const { data, error } = await supabase
     .from('perfiles')
-    .upsert({ ...perfil, id: user.id })
+    .upsert({ ...safeData, id: user.id })
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Database Upsert Error:', error)
+    throw error
+  }
   return data as Perfil
+}
+
+export async function uploadAvatar(file: File): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No authenticated user')
+
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${user.id}/avatar.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  // Añadimos timestamp para forzar recarga de la imagen en el navegador
+  return `${data.publicUrl}?t=${Date.now()}`
 }

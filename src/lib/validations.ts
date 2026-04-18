@@ -10,7 +10,7 @@ export const registroSchema = z
     nombre: z.string().min(2, 'Nombre requerido'),
     apellido: z.string().min(2, 'Apellido requerido'),
     empresa: z.string().min(2, 'Empresa requerida'),
-    telefono: z.string().min(10, 'Teléfono inválido'),
+    telefono: z.string().refine(v => v.replace(/\D/g, '').length >= 7, 'Teléfono inválido'),
     email: z.string().email('Correo inválido'),
     password: z.string().min(6, 'Mínimo 6 caracteres'),
     confirmPassword: z.string(),
@@ -34,7 +34,7 @@ export const perfilSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
   apellido: z.string().min(2, 'Apellido requerido'),
   empresa: z.string().min(2, 'Empresa requerida'),
-  telefono: z.string().min(10, 'Teléfono inválido'),
+  telefono: z.string().refine(v => v.replace(/\D/g, '').length >= 7, 'Teléfono inválido'),
 })
 
 export type LoginFormData = z.infer<typeof loginSchema>

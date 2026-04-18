@@ -1,8 +1,8 @@
 .sidebar {
-  width: 260px;
+  width: 88px;
   background: white;
   border-right: 1px solid var(--color-border);
-  padding: 2rem 0;
+  padding: 2rem 0.5rem;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -12,50 +12,43 @@
   z-index: 50;
 }
 
-.collapsed {
-  width: 88px;
-}
-
 .sidebar:hover {
   width: 260px;
+  padding: 2rem 1rem;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0 1rem;
 }
 
 .link {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.85rem 1.25rem;
+  padding: 0.85rem 1rem;
   border-radius: var(--radius-md);
   font-size: 0.925rem;
   font-weight: 600;
   color: var(--color-text-muted);
   transition: all 200ms ease;
-  margin-bottom: 0.25rem;
   white-space: nowrap;
+}
+
+.sidebar:hover .link {
+  padding: 0.85rem 1.25rem;
 }
 
 .link:hover {
   background: #f1f5f9;
   color: var(--color-primary);
-  transform: translateX(4px);
 }
 
 .active {
-  background: #f5f3ff; /* Indigo 50 */
+  background: #f5f3ff;
   color: var(--color-primary);
   box-shadow: inset 4px 0 0 -1px var(--color-primary);
-}
-
-.active .icon {
-  color: var(--color-primary);
-  transform: scale(1.1);
 }
 
 .icon {
@@ -69,21 +62,27 @@
   transition: all 200ms ease;
 }
 
-.label {
-  transition: opacity 200ms ease, transform 200ms ease;
-  opacity: 1;
+.active .icon {
+  color: var(--color-primary);
 }
 
-.collapsed:not(:hover) .label {
+.label {
+  transition: opacity 200ms ease;
   opacity: 0;
-  transform: translateX(-10px);
-  pointer-events: none;
+}
+
+.sidebar:hover .label {
+  opacity: 1;
 }
 
 .logoutSection {
   margin-top: auto;
-  padding: 1.5rem 1rem 0;
+  padding: 1.5rem 0.5rem 0;
   border-top: 1px solid var(--color-border);
+}
+
+.sidebar:hover .logoutSection {
+  padding: 1.5rem 1rem 0;
 }
 
 .btnLogOut {
@@ -91,7 +90,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.85rem 1.25rem;
+  padding: 0.85rem 1rem;
   border: none;
   background: transparent;
   color: #ef4444;
@@ -104,5 +103,8 @@
 
 .btnLogOut:hover {
   background: #fef2f2;
-  transform: translateX(4px);
+}
+
+.sidebar:hover .btnLogOut {
+  padding: 0.85rem 1.25rem;
 }

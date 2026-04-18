@@ -2,10 +2,13 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from '@/components/layout/Layout'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Toaster } from '@/components/ui/toast'
 
 const Landing = lazy(() => import('@/pages/Landing'))
 const Login = lazy(() => import('@/pages/Login'))
 const Registro = lazy(() => import('@/pages/Registro'))
+const ConfirmarCorreo = lazy(() => import('@/pages/ConfirmarCorreo'))
+const AuthCallback = lazy(() => import('@/pages/AuthCallback'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const NuevoPresupuesto = lazy(() => import('@/pages/NuevoPresupuesto'))
 const Proyectos = lazy(() => import('@/pages/Proyectos'))
@@ -25,12 +28,15 @@ function PageLoader() {
 
 export default function App() {
   return (
+    <>
     <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Rutas públicas */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
+        <Route path="/confirmar-correo" element={<ConfirmarCorreo />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Rutas de la app (con layout sidebar) */}
         <Route path="/app" element={<Layout />}>
@@ -45,5 +51,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
+    <Toaster />
+    </>
   )
 }

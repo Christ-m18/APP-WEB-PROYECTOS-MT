@@ -1,30 +1,38 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { usePerfil, useUpsertPerfil } from '@/hooks/usePerfil'
+import { uploadAvatar } from '@/lib/db'
 import { perfilSchema, type PerfilFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PhoneInput, CountryFlag, parsePhoneValue, COUNTRIES, type Country } from '@/components/ui/phone-input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
-import { User, Shield, LogOut, Building, Phone, Mail, Activity, Check, Pencil, X, Save } from 'lucide-react'
+import { User, Shield, LogOut, Building, Mail, Activity, Check, Pencil, X, Save, Camera } from 'lucide-react'
 import styles from './Perfil.module.css'
 
 export default function Perfil() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { data: perfil, isLoading } = usePerfil()
   const upsertMutation = useUpsertPerfil()
   const [initials, setInitials] = useState('??')
   const [isEditing, setIsEditing] = useState(false)
+  const [phoneCountry, setPhoneCountry] = useState<Country>(COUNTRIES[0])
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting, isDirty },
-  } = useForm<PerfilFormData>({ 
+  } = useForm<PerfilFormData>({
     resolver: zodResolver(perfilSchema),
     defaultValues: {
       nombre: '',
@@ -46,27 +54,59 @@ export default function Perfil() {
           empresa: perfil?.empresa || meta.empresa || '',
           telefono: perfil?.telefono || meta.telefono || '',
         })
-        
+
         const n = (perfil?.nombre || meta.nombre || '?')[0]
         const a = (perfil?.apellido || meta.apellido || '')[0] || ''
         setInitials((n + a).toUpperCase())
+
+        const tel = perfil?.telefono || meta.telefono || ''
+        const { country } = parsePhoneValue(tel)
+        setPhoneCountry(country)
+
+        if (perfil?.avatar_url) setAvatarUrl(perfil.avatar_url)
       }
     }
     void loadAuthData()
   }, [perfil, reset])
 
-  const onSubmit = (data: PerfilFormData) => {
-    upsertMutation.mutate(data, {
-      onSuccess: () => {
-        toast({ title: 'Perfil actualizado correctamente' })
-        const n = (data.nombre || '?')[0]
-        const a = (data.apellido || '')[0] || ''
-        setInitials((n + a).toUpperCase())
-        setIsEditing(false)
-      },
-      onError: (e) =>
-        toast({ title: 'Error al actualizar', description: String(e), variant: 'destructive' }),
-    })
+  // Abrir selector de avatar si viene desde el dropdown del Header
+  useEffect(() => {
+    const state = location.state as { openAvatarUpload?: boolean } | null
+    if (state?.openAvatarUpload) {
+      setTimeout(() => fileInputRef.current?.click(), 300)
+      // Limpiar state para no repetir
+      window.history.replaceState({}, '')
+    }
+  }, [location.state])
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const url = await uploadAvatar(file)
+      await upsertMutation.mutateAsync({ avatar_url: url })
+      setAvatarUrl(url)
+      toast({ title: 'Avatar actualizado correctamente' })
+    } catch (err) {
+      toast({ title: 'Error al subir avatar', description: String(err), variant: 'destructive' })
+    } finally {
+      setUploadingAvatar(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const onSubmit = async (data: PerfilFormData) => {
+    try {
+      await upsertMutation.mutateAsync(data)
+      toast({ title: 'Perfil actualizado correctamente' })
+      const n = (data.nombre || '?')[0]
+      const a = (data.apellido || '')[0] || ''
+      setInitials((n + a).toUpperCase())
+      setIsEditing(false)
+    } catch (e) {
+      toast({ title: 'Error al actualizar', description: String(e), variant: 'destructive' })
+    }
   }
 
   const handleLogout = async () => {
@@ -99,7 +139,33 @@ export default function Perfil() {
   return (
     <div className={styles.page + " animate-in fade-in duration-500"}>
       <div className={styles.profileHeader}>
-        <div className={styles.avatarLarge}>{initials}</div>
+        <div className={styles.avatarWrapper}>
+          <div className={styles.avatarLarge}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" className={styles.avatarImage} />
+              : initials
+            }
+            <button
+              type="button"
+              className={styles.avatarEditBtn}
+              onClick={() => fileInputRef.current?.click()}
+              title="Cambiar avatar"
+              disabled={uploadingAvatar}
+            >
+              {uploadingAvatar ? '...' : <Camera size={16} />}
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => void handleAvatarChange(e)}
+          />
+          <div className={styles.countryFlag} title={phoneCountry.name}>
+            <CountryFlag iso={phoneCountry.iso} style={{ fontSize: '1.35rem' }} />
+          </div>
+        </div>
         <div className={styles.headerInfo}>
           <h2>{perfil?.nombre || 'Usuario'} {perfil?.apellido || 'Activo'}</h2>
           <p className={styles.email}><Mail size={16} className="inline mr-2" />{perfil?.email}</p>
@@ -112,75 +178,98 @@ export default function Perfil() {
               <Check size={14} className="inline mr-1" />
               Cuenta Verificada
             </span>
+            <span className={styles.countryBadge}>
+              <CountryFlag iso={phoneCountry.iso} /> {phoneCountry.name} · {phoneCountry.dialCode}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <section>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className={styles.card}>
-              <div className={styles.sectionHeader}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div className={styles.sectionIcon}><User size={20} /></div>
-                  <h3 className={styles.sectionTitle}>Datos del Perfil</h3>
-                </div>
-                <button 
-                  type="button" 
-                  className={styles.btnToggleEdit}
-                  onClick={() => setIsEditing(!isEditing)}
-                  title={isEditing ? "Cancelar edición" : "Editar perfil"}
-                >
-                  {isEditing ? <X size={18} /> : <Pencil size={18} />}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                <div className={styles.field}>
-                  <label>Nombre Completo</label>
-                  <Input {...register('nombre')} readOnly={!isEditing} placeholder="Tu nombre" className={!isEditing ? styles.inputReadOnly : ''} />
-                  {errors.nombre && <span className="text-red-500 text-xs font-bold mt-1">{errors.nombre.message}</span>}
-                </div>
-                <div className={styles.field}>
-                  <label>Primer Apellido</label>
-                  <Input {...register('apellido')} readOnly={!isEditing} placeholder="Tu apellido" className={!isEditing ? styles.inputReadOnly : ''} />
-                  {errors.apellido && <span className="text-red-500 text-xs font-bold mt-1">{errors.apellido.message}</span>}
-                </div>
-                <div className={styles.field}>
-                  <label>Organización / Institución</label>
-                  <div style={{ position: 'relative' }}>
-                    <Building size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-                    <Input {...register('empresa')} readOnly={!isEditing} placeholder="ej. Energía del Norte" style={{ paddingLeft: '3rem' }} className={!isEditing ? styles.inputReadOnly : ''} />
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className={styles.card}>
+                  <div className={styles.sectionHeader}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div className={styles.sectionIcon}><User size={20} /></div>
+                      <h3 className={styles.sectionTitle}>Datos del Perfil</h3>
+                    </div>
+                    <button 
+                      type="button" 
+                      className={styles.btnToggleEdit}
+                      onClick={() => setIsEditing(!isEditing)}
+                      title={isEditing ? "Cancelar edición" : "Editar perfil"}
+                    >
+                      {isEditing ? <X size={18} /> : <Pencil size={18} />}
+                    </button>
                   </div>
-                </div>
-                <div className={styles.field}>
-                  <label>Línea Telefónica</label>
-                  <div style={{ position: 'relative' }}>
-                    <Phone size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-                    <Input type="tel" {...register('telefono')} readOnly={!isEditing} placeholder="809-000-0000" style={{ paddingLeft: '3rem' }} className={!isEditing ? styles.inputReadOnly : ''} />
-                  </div>
-                </div>
-              </div>
 
-              {isEditing && (
-                <div style={{ marginTop: '2.5rem' }}>
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    disabled={isSubmitting || !isDirty}
-                    style={{ 
-                      background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
-                      fontWeight: 800,
-                      height: '3.2rem',
-                      fontSize: '0.95rem'
-                    }}
-                  >
-                    <Save size={18} className="mr-2" /> {isSubmitting ? 'SINCRONIZANDO...' : 'ACTUALIZAR INFORMACIÓN'}
-                  </Button>
+                  <div className="grid grid-cols-1 gap-6">
+                    <div className={styles.field}>
+                      <label>Nombre Completo</label>
+                      <Input {...register('nombre')} readOnly={!isEditing} placeholder="Tu nombre" className={!isEditing ? styles.inputReadOnly : ''} />
+                      {errors.nombre && <span className="text-red-500 text-xs font-bold mt-1">{errors.nombre.message}</span>}
+                    </div>
+                    <div className={styles.field}>
+                      <label>Primer Apellido</label>
+                      <Input {...register('apellido')} readOnly={!isEditing} placeholder="Tu apellido" className={!isEditing ? styles.inputReadOnly : ''} />
+                      {errors.apellido && <span className="text-red-500 text-xs font-bold mt-1">{errors.apellido.message}</span>}
+                    </div>
+                    <div className={styles.field}>
+                      <label>Organización / Institución</label>
+                      <div style={{ position: 'relative' }}>
+                        <Building size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                        <Input {...register('empresa')} readOnly={!isEditing} placeholder="ej. Energía del Norte" style={{ paddingLeft: '3rem' }} className={!isEditing ? styles.inputReadOnly : ''} />
+                      </div>
+                    </div>
+                    <div className={styles.field}>
+                      <label>Línea Telefónica</label>
+                      <Controller
+                        name="telefono"
+                        control={control}
+                        render={({ field }) => (
+                          <PhoneInput
+                            value={field.value}
+                            onChange={field.onChange}
+                            onCountryChange={setPhoneCountry}
+                            readOnly={!isEditing}
+                            inputClassName={!isEditing ? styles.inputReadOnly : ''}
+                          />
+                        )}
+                      />
+                      {errors.telefono && <span className="text-red-500 text-xs font-bold mt-1">{errors.telefono.message}</span>}
+                    </div>
+                  </div>
+
+                  {isEditing && (
+                    <div style={{ marginTop: '2.5rem' }}>
+                      <Button 
+                        type="submit" 
+                        className={`w-full ${isDirty ? 'animate-pulse' : ''}`}
+                        disabled={isSubmitting || !isDirty}
+                        style={{ 
+                          background: isDirty 
+                            ? 'linear-gradient(135deg, var(--color-primary), var(--color-accent))' 
+                            : '#e2e8f0',
+                          color: isDirty ? 'white' : '#64748b',
+                          fontWeight: 800,
+                          height: '3.5rem',
+                          fontSize: '0.95rem',
+                          borderRadius: '16px',
+                          boxShadow: isDirty ? '0 10px 20px -5px rgba(79, 70, 229, 0.4)' : 'none',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        {isSubmitting ? (
+                          <span className="flex items-center gap-2">SINCRONIZANDO...</span>
+                        ) : (
+                          <span className="flex items-center gap-2"><Save size={18} /> ACTUALIZAR INFORMACIÓN</span>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </form>
+              </form>
         </section>
 
         <section className="space-y-8">

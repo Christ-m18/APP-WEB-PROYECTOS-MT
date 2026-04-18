@@ -20,10 +20,10 @@ export default defineConfig({
     },
   },
   server: {
-    headers: {
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
+    allowedHosts: ['.tunnelmole.net'],
+    hmr: {
+      protocol: 'wss',
+      clientPort: 443,
     },
   },
   build: {

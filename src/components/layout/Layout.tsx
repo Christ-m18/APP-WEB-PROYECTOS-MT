@@ -8,14 +8,14 @@ import styles from './Layout.module.css'
 export default function Layout() {
   const location = useLocation()
   
-  // Determinamos si el sidebar debe estar contraído automáticamente (Modo Zen)
-  const isBudgetPage = location.pathname.includes('/app/presupuesto')
+  // El Sidebar se contrae automáticamente en toda la aplicación
+  const isCollapsed = true
 
   return (
     <div className={styles.shell}>
       <Header />
       <div className={styles.body}>
-        <Sidebar isCollapsed={isBudgetPage} />
+        <Sidebar isCollapsed={isCollapsed} />
         <main className={styles.main}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname}>
