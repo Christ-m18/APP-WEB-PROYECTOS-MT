@@ -10,20 +10,22 @@ export interface Country {
   maxDigits: number
 }
 
-function isoToEmoji(iso: string): string {
-  return iso.toUpperCase().split('').map(c =>
-    String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
-  ).join('')
-}
-
 export function CountryFlag({ iso, style }: { iso: string; style?: React.CSSProperties }) {
+  const code = iso.toLowerCase()
   return (
-    <span
-      style={{ fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, ...style }}
-      aria-label={iso}
-    >
-      {isoToEmoji(iso)}
-    </span>
+    <img
+      src={`https://flagcdn.com/24x18/${code}.png`}
+      srcSet={`https://flagcdn.com/48x36/${code}.png 2x`}
+      width="24"
+      height="18"
+      alt={iso}
+      style={{
+        flexShrink: 0,
+        borderRadius: '2px',
+        objectFit: 'cover',
+        ...style,
+      }}
+    />
   )
 }
 

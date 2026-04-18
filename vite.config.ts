@@ -9,22 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html'],
-      include: ['src/utils/**', 'src/lib/validations.ts'],
-    },
-  },
   server: {
     allowedHosts: ['.tunnelmole.net'],
-    hmr: {
-      protocol: 'wss',
-      clientPort: 443,
-    },
+    hmr: false,
   },
   build: {
     rollupOptions: {
