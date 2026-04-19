@@ -26,7 +26,7 @@ export const proyectoSchema = z.object({
   fecha: z.string().min(1, 'Fecha requerida'),
   voltaje: z.string().min(1, 'Voltaje requerido'),
   estado: z.enum(['borrador', 'enviado', 'aprobado', 'rechazado']),
-  overhead: z.coerce.number().min(0).max(100),
+  overhead: z.number().min(0).max(100),
   aplicar_itbis: z.boolean(),
 })
 

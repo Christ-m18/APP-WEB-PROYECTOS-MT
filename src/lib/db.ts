@@ -45,6 +45,16 @@ export async function fetchMaterialesParaMultiplesEstructuras(
   return (data ?? []) as unknown as UuccMaterialEstructura[]
 }
 
+export async function fetchTodaManoObra(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('estructuras_mano_obra')
+    .select('*')
+    .eq('activo', true)
+
+  if (error) throw error
+  return data ?? []
+}
+
 // ─── Proyectos ────────────────────────────────────────────────────────────────
 
 export async function fetchProyectos(): Promise<Proyecto[]> {
@@ -96,6 +106,7 @@ export async function createProyecto(
         estructura: pAny.estructura || '',
         cantidad: Number(pAny.cantidad) || 0,
         precio_unitario: Number(pAny.precio_unitario) || 0,
+        // (total es generado en Supabase)
         orden: pAny.orden || index,
         detalles: pAny.detalles || null
       }
@@ -140,6 +151,7 @@ export async function updateProyecto(
         estructura: pAny.estructura || '',
         cantidad: Number(pAny.cantidad) || 0,
         precio_unitario: Number(pAny.precio_unitario) || 0,
+        // (total es generado en Supabase)
         orden: pAny.orden || index,
         detalles: pAny.detalles || null
       }

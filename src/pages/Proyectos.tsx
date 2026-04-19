@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProyectos, useDeleteProyecto } from '@/hooks/useProyectos'
+import { useTodaManoObra } from '@/hooks/useEstructuras'
 import { 
   Plus, 
   Search, 
@@ -13,7 +14,8 @@ import {
   FolderSync
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
-import { formatRD, resumenPresupuesto } from '@/utils/calculos'
+import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
+import { VOLTAJES } from '@/data/estructuras_sie'
 import styles from './Proyectos.module.css'
 
 export default function Proyectos() {
@@ -21,6 +23,7 @@ export default function Proyectos() {
   const { data: proyectos = [], isLoading } = useProyectos()
   const deleteMutation = useDeleteProyecto()
   const [searchTerm, setSearchTerm] = useState('')
+  const { data: todaManoObra = [] } = useTodaManoObra()
 
   const filtered = proyectos.filter(p => 
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,7 +86,7 @@ export default function Proyectos() {
               <tr>
                 <th>Proyecto / Cliente</th>
                 <th>Nivel Tensión</th>
-                <th>Inversión Estimada</th>
+                <th>Total General del Presupuesto</th>
                 <th>Estado</th>
                 <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
@@ -95,10 +98,7 @@ export default function Proyectos() {
                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>No se encontraron registros.</td></tr>
               ) : (
                 filtered.map(p => {
-                  const { total } = resumenPresupuesto(p.partidas ?? [], {
-                    porcentajeOverhead: p.overhead,
-                    aplicarITBIS: p.aplicar_itbis,
-                  })
+                  const total = calcularTotalProyecto(p.partidas ?? [], todaManoObra, p.overhead, p.aplicar_itbis)
                   return (
                     <tr key={p.id}>
                       <td>
@@ -106,7 +106,9 @@ export default function Proyectos() {
                         <div className={styles.cliente}>{p.cliente}</div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 800, color: 'var(--color-text)', fontSize: '0.9rem' }}>{p.voltaje || 'N/A'}</div>
+                        <div style={{ fontWeight: 800, color: 'var(--color-text)', fontSize: '0.9rem' }}>
+                          {VOLTAJES.find(v => v.value === p.voltaje)?.label || p.voltaje || 'N/A'}
+                        </div>
                       </td>
                       <td>
                         <div style={{ fontWeight: 900, color: 'var(--color-primary)', fontSize: '0.95rem' }}>{formatRD(total)}</div>

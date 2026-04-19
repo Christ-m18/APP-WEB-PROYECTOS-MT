@@ -1,97 +1,201 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { ExportPDFOptions, Proyecto, MaterialConsolidado } from '@/types'
+import type { ExportPDFOptions, Proyecto, MaterialConsolidado, ManoObraLinea, EmpresaConfig } from '@/types'
 import { formatRD, resumenPresupuesto } from '@/utils/calculos'
 
-// Colores de la marca para el PDF
-const COLORS = {
-  primary: [37, 99, 235] as [number, number, number], // #2563eb
-  text: [30, 41, 59] as [number, number, number],    // #1e293b
-  muted: [100, 116, 139] as [number, number, number], // #64748b
-  border: [226, 232, 240] as [number, number, number] // #e2e8f0
+// ─── Paleta unificada ─────────────────────────────────────────────────────────
+const C = {
+  primary:   [37, 99, 235]   as [number, number, number], // Blue-600
+  primary2:  [29, 78, 216]   as [number, number, number], // Blue-700 (header oscuro)
+  accent:    [99, 102, 241]  as [number, number, number], // Indigo-500
+  dark:      [15, 23, 42]    as [number, number, number], // Slate-900
+  text:      [30, 41, 59]    as [number, number, number], // Slate-800
+  muted:     [71, 85, 105]   as [number, number, number], // Slate-600
+  light:     [241, 245, 249] as [number, number, number], // Slate-100
+  border:    [203, 213, 225] as [number, number, number], // Slate-300
+  white:     [255, 255, 255] as [number, number, number],
+  green:     [21, 128, 61]   as [number, number, number],
+  greenBg:   [220, 252, 231] as [number, number, number],
+  blueBg:    [219, 234, 254] as [number, number, number], // Blue-100
 }
 
-function dibujarEncabezado(doc: jsPDF, proyecto: Proyecto, titulo: string): number {
-  // Logo / Nombre de la empresa
+const PAGE_W = 210
+const PAGE_H = 297
+const MARGIN = 14
+
+// ─── Helper: dibujar rectángulo redondeado ─────────────────────────────────
+function roundedRect(
+  doc: jsPDF,
+  x: number, y: number,
+  w: number, h: number,
+  r: number,
+  fillColor: [number, number, number]
+): void {
+  doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+  doc.roundedRect(x, y, w, h, r, r, 'F')
+}
+
+// ─── Header principal con logo + empresa ──────────────────────────────────
+function dibujarEncabezado(
+  doc: jsPDF,
+  proyecto: Proyecto,
+  titulo: string,
+  empresa?: EmpresaConfig
+): number {
+  const pageW = doc.internal.pageSize.width
+
+  // Franja superior azul oscura
+  doc.setFillColor(C.primary2[0], C.primary2[1], C.primary2[2])
+  doc.rect(0, 0, pageW, 28, 'F')
+
+  // ── Logo (si existe) ──────────────────────────────────────────
+  let logoEndX = MARGIN
+  if (empresa?.logoBase64) {
+    try {
+      doc.addImage(empresa.logoBase64, 'PNG', MARGIN, 4, 20, 20)
+      logoEndX = MARGIN + 24
+    } catch { /* logo inválido */ }
+  }
+
+  // ── Nombre empresa ────────────────────────────────────────────
+  const nombreEmpresa = empresa?.nombre || 'MT Presupuestos SIE'
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.white[0], C.white[1], C.white[2])
+  doc.text(nombreEmpresa, logoEndX + 2, 13)
+
+  // Sub-datos empresa (RNC / Tel / Dirección)
+  const subTexts: string[] = []
+  if (empresa?.rnc) subTexts.push(`RNC: ${empresa.rnc}`)
+  if (empresa?.telefono) subTexts.push(`Tel: ${empresa.telefono}`)
+  if (empresa?.email) subTexts.push(empresa.email)
+  if (subTexts.length > 0) {
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(200, 220, 255)
+    doc.text(subTexts.join('  ·  '), logoEndX + 2, 21)
+  }
+  if (empresa?.direccion) {
+    doc.setFontSize(7)
+    doc.text(empresa.direccion, logoEndX + 2, 26)
+  }
+
+  // ── Número de página en la franja ─────────────────────────────
+  doc.setFontSize(8)
+  doc.setTextColor(200, 220, 255)
+  const fechaHoy = new Date().toLocaleDateString('es-DO', { day: '2-digit', month: 'long', year: 'numeric' })
+  doc.text(fechaHoy, pageW - MARGIN, 14, { align: 'right' })
+
+  // ── Sección de título del documento ──────────────────────────
+  let y = 40
+
+  // Título del reporte
   doc.setFontSize(18)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2])
-  doc.text('⚡ MT Presupuestos SIE', 14, 20)
+  doc.setTextColor(C.primary2[0], C.primary2[1], C.primary2[2])
+  doc.text(titulo.toUpperCase(), MARGIN, y)
+
+  // Línea decorativa bajo el título
+  doc.setDrawColor(C.primary[0], C.primary[1], C.primary[2])
+  doc.setLineWidth(0.8)
+  doc.line(MARGIN, y + 3, MARGIN + 60, y + 3)
+
+  y += 12
+
+  // ── Caja de información del proyecto ─────────────────────────
+  const boxH = 28
+  roundedRect(doc, MARGIN, y, pageW - MARGIN * 2, boxH, 3, C.light)
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+
+  // Columna izquierda
+  const col1 = MARGIN + 4
+  const col2 = col1 + 28
+  const col3 = 120
+  const col4 = col3 + 22
+  const row1 = y + 9
+  const row2 = y + 18
+
+  doc.text('PROYECTO:', col1, row1)
+  doc.text('CLIENTE:', col1, row2)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.text[0], C.text[1], C.text[2])
+  doc.text(proyecto.nombre.substring(0, 50), col2, row1)
+  doc.text(proyecto.cliente.substring(0, 50), col2, row2)
+
+  // Columna derecha
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+  doc.text('ESTADO:', col3, row1)
+  doc.text('TENSIÓN:', col3, row2)
   
-  doc.setFontSize(9)
+  // Badge de estado
+  const estado = (proyecto.estado || 'borrador').toUpperCase()
+  const estadoColor = estado === 'APROBADO' ? C.green : estado === 'RECHAZADO' ? [180, 40, 40] as [number,number,number] : C.muted
+  doc.setTextColor(estadoColor[0], estadoColor[1], estadoColor[2])
+  doc.text(estado, col4, row1)
+
+  // Tensión
+  doc.setTextColor(C.text[0], C.text[1], C.text[2])
+  doc.text(proyecto.voltaje || 'N/A', col4, row2)
+
+  // Fecha (esquina derecha de la caja)
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2])
-  doc.text('Soluciones de Ingeniería Eléctrica', 14, 25)
+  doc.setFontSize(7)
+  doc.text(`Fecha: ${proyecto.fecha}`, pageW - MARGIN - 4, row1, { align: 'right' })
 
-  // Título del Reporte
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2])
-  doc.text(titulo.toUpperCase(), 14, 40)
-
-  // Información del Proyecto (Cajas de datos)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  doc.text('INFORMACIÓN DEL PROYECTO', 14, 50)
-  
-  doc.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2])
-  doc.line(14, 52, 200, 52)
-
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2])
-  doc.text('PROYECTO:', 14, 60)
-  doc.text('CLIENTE:', 14, 66)
-  doc.text('FECHA:', 14, 72)
-
-  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2])
-  doc.setFont('helvetica', 'bold')
-  doc.text(proyecto.nombre, 40, 60)
-  doc.text(proyecto.cliente, 40, 66)
-  doc.text(proyecto.fecha, 40, 72)
-
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2])
-  doc.text('TENSIÓN:', 130, 60)
-  doc.text('ESTADO:', 130, 66)
-
-  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2])
-  doc.setFont('helvetica', 'bold')
-  doc.text(proyecto.voltaje || 'N/A', 150, 60)
-  doc.text((proyecto.estado || 'borrador').toUpperCase(), 150, 66)
-
-  return 80
+  return y + boxH + 8
 }
 
-function dibujarPie(doc: jsPDF): void {
+// ─── Pie de página ────────────────────────────────────────────────────────
+function dibujarPie(doc: jsPDF, empresa?: EmpresaConfig): void {
   const pageCount = doc.getNumberOfPages()
+  const pageW = doc.internal.pageSize.width
+  const pageH = doc.internal.pageSize.height
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2])
-    const fecha = new Date().toLocaleDateString()
-    doc.text(
-      `Generado el ${fecha} — MT Presupuestos SIE`,
-      14,
-      doc.internal.pageSize.height - 10
-    )
-    doc.text(
-      `Página ${i} de ${pageCount}`,
-      doc.internal.pageSize.width - 30,
-      doc.internal.pageSize.height - 10
-    )
+    // Línea divisoria
+    doc.setDrawColor(C.border[0], C.border[1], C.border[2])
+    doc.setLineWidth(0.3)
+    doc.line(MARGIN, pageH - 15, pageW - MARGIN, pageH - 15)
+    // Texto izquierda
+    doc.setFontSize(7)
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+    doc.setFont('helvetica', 'normal')
+    const firma = empresa?.nombre || 'MT Presupuestos SIE'
+    doc.text(`© ${firma} — Documento generado electrónicamente`, MARGIN, pageH - 8)
+    // Texto derecha
+    doc.text(`Pág. ${i} / ${pageCount}`, pageW - MARGIN, pageH - 8, { align: 'right' })
   }
 }
 
-function agregarTablaPartidas(doc: jsPDF, proyecto: Proyecto, startY: number): number {
+// ─── Tabla de partidas ────────────────────────────────────────────────────
+function agregarTablaPartidas(
+  doc: jsPDF,
+  proyecto: Proyecto,
+  startY: number,
+  manoObra: ManoObraLinea[] = []
+): number {
   const partidas = proyecto.partidas ?? []
   const resumen = resumenPresupuesto(partidas, {
-    porcentajeOverhead: proyecto.overhead,
+    porcentajeOverhead: 0, // overhead ya aplicado silenciosamente en los precios
     aplicarITBIS: proyecto.aplicar_itbis,
   })
+  const totalMO = manoObra.reduce((acc, m) => acc + m.subtotal, 0)
+
+  // Título de sección
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.primary[0], C.primary[1], C.primary[2])
+  doc.text('\u25b8  DESGLOSE DE PARTIDAS', MARGIN, startY)
+  startY += 4
 
   autoTable(doc, {
     startY,
-    head: [['#', 'ESTRUCTURA / PARTIDA', 'CANT.', 'COSTO UNIT.', 'SUBTOTAL']],
+    head: [['#', 'ESTRUCTURA / PARTIDA', 'CANT.', 'COSTO UNIT. (RD$)', 'SUBTOTAL (RD$)']],
     body: partidas.map((p, i) => [
       i + 1,
       p.estructura,
@@ -100,132 +204,232 @@ function agregarTablaPartidas(doc: jsPDF, proyecto: Proyecto, startY: number): n
       formatRD(p.total),
     ]),
     theme: 'striped',
-    headStyles: { 
-      fillColor: COLORS.primary,
-      fontSize: 9,
+    headStyles: {
+      fillColor: C.primary,
+      textColor: C.white,
+      fontSize: 8,
       fontStyle: 'bold',
-      halign: 'center'
+      halign: 'center',
+      cellPadding: 5,
     },
-    styles: { 
+    alternateRowStyles: { fillColor: C.blueBg },
+    styles: {
       fontSize: 8,
       cellPadding: 4,
-      textColor: COLORS.text
+      textColor: C.text,
+      lineColor: C.border,
+      lineWidth: 0.1,
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'center', cellWidth: 20 },
-      3: { halign: 'right', cellWidth: 35 },
-      4: { halign: 'right', cellWidth: 40, fontStyle: 'bold' }
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 40 },
+      4: { halign: 'right', cellWidth: 40, fontStyle: 'bold' },
+    },
+  })
+
+  let finalY = (doc as any).lastAutoTable.finalY + 10
+
+  // ── Bloque de resumen financiero ───────────────────────────────
+  const boxW = 90
+  const boxX = PAGE_W - MARGIN - boxW
+  let boxY = finalY
+  const lineH = 8
+
+  const filas: { label: string; value: string; last?: boolean; green?: boolean }[] = [
+    { label: 'SUBTOTAL MATERIALES', value: formatRD(resumen.subtotal) },
+  ]
+  if (resumen.montoITBIS > 0)
+    filas.push({ label: 'ITBIS (18%)', value: formatRD(resumen.montoITBIS) })
+  filas.push({ label: 'TOTAL MATERIALES', value: formatRD(resumen.total), last: !totalMO })
+  if (totalMO > 0) {
+    filas.push({ label: 'MANO DE OBRA', value: formatRD(totalMO) })
+    filas.push({ label: 'TOTAL COMBINADO', value: formatRD(resumen.total + totalMO), last: true, green: true })
+  }
+
+  // Caja de fondo
+  roundedRect(doc, boxX - 2, boxY - 4, boxW + 4, filas.length * lineH + 14, 3, C.light)
+
+  filas.forEach((f, idx) => {
+    const fy = boxY + idx * lineH
+    if (f.last) {
+      // Franja total
+      const fillColor = f.green ? [22, 163, 74] as [number,number,number] : C.primary
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+      doc.rect(boxX - 2, fy - 1, boxW + 4, lineH + 4, 'F')
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(C.white[0], C.white[1], C.white[2])
+      doc.text(f.label, boxX + 2, fy + 5)
+      doc.text(f.value, PAGE_W - MARGIN - 2, fy + 5, { align: 'right' })
+    } else {
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+      doc.text(f.label, boxX + 2, fy + 4)
+      doc.setTextColor(C.text[0], C.text[1], C.text[2])
+      doc.text(f.value, PAGE_W - MARGIN - 2, fy + 4, { align: 'right' })
     }
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10
-
-  // Resumen Financiero
-  const marginX = 130
-  doc.setFontSize(9)
-  doc.setTextColor(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2])
-  doc.text('SUBTOTAL MATERIALES:', marginX, finalY)
-  doc.text(formatRD(resumen.subtotal), 200, finalY, { align: 'right' })
-
-  let currentY = finalY + 6
-  if (resumen.costoOverhead > 0) {
-    doc.text(`OVERHEAD (${resumen.porcentajeOverhead}%):`, marginX, currentY)
-    doc.text(formatRD(resumen.costoOverhead), 200, currentY, { align: 'right' })
-    currentY += 6
-  }
-
-  if (resumen.montoITBIS > 0) {
-    doc.text('ITBIS (18%):', marginX, currentY)
-    doc.text(formatRD(resumen.montoITBIS), 200, currentY, { align: 'right' })
-    currentY += 6
-  }
-
-  doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2])
-  doc.setLineWidth(0.5)
-  doc.line(marginX, currentY, 200, currentY)
-  
-  currentY += 8
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2])
-  doc.text('TOTAL PRESUPUESTO:', marginX, currentY)
-  doc.text(formatRD(resumen.total), 200, currentY, { align: 'right' })
-
-  return currentY + 20
+  return finalY + filas.length * lineH + 20
 }
 
-function agregarTablaMateriales(
-  doc: jsPDF,
-  materiales: MaterialConsolidado[],
-  startY: number
-): number {
-  const totalMateriales = materiales.reduce((acc, m) => acc + m.subtotal, 0)
+// ─── Tabla de materiales ──────────────────────────────────────────────────
+function agregarTablaMateriales(doc: jsPDF, materiales: MaterialConsolidado[], startY: number): number {
+  const total = materiales.reduce((acc, m) => acc + m.subtotal, 0)
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.primary[0], C.primary[1], C.primary[2])
+  doc.text('▸  CONSOLIDADO DE MATERIALES', MARGIN, startY)
+  startY += 4
 
   autoTable(doc, {
     startY,
-    head: [['CÓDIGO', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'VALORIZACIÓN']],
+    head: [['CÓDIGO', 'DESCRIPCIÓN DEL MATERIAL', 'UNIDAD', 'CANTIDAD', 'PRECIO UNIT.', 'VALORIZACIÓN']],
     body: materiales.map((m) => [
       m.codigo,
       m.descripcion,
       m.unidad,
       m.cantidadTotal.toLocaleString(),
+      formatRD(m.precioUnitario),
       formatRD(m.subtotal),
     ]),
-    theme: 'grid',
-    headStyles: { 
-      fillColor: [51, 65, 85], // Slate 700
-      fontSize: 8,
-      fontStyle: 'bold'
+    theme: 'striped',
+    headStyles: {
+      fillColor: C.primary,
+      textColor: C.white,
+      fontSize: 7.5,
+      fontStyle: 'bold',
+      cellPadding: 4,
     },
-    styles: { 
+    alternateRowStyles: { fillColor: C.blueBg },
+    styles: {
       fontSize: 7,
       cellPadding: 3,
-      textColor: COLORS.text
+      textColor: C.text,
+      lineColor: C.border,
+      lineWidth: 0.1,
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 25 },
-      2: { halign: 'center', cellWidth: 20 },
-      3: { halign: 'right', cellWidth: 20 },
-      4: { halign: 'right', cellWidth: 35 }
-    }
+      0: { fontStyle: 'bold', cellWidth: 22 },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 18 },
+      4: { halign: 'right', cellWidth: 28 },
+      5: { halign: 'right', cellWidth: 30, fontStyle: 'bold' },
+    },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10
-  
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2])
-  doc.text('RESUMEN DE MATERIALES:', 14, finalY)
-  doc.text(formatRD(totalMateriales), 200, finalY, { align: 'right' })
+  const finalY = (doc as any).lastAutoTable.finalY + 6
 
-  return finalY + 10
+  // Total
+  roundedRect(doc, MARGIN, finalY, PAGE_W - MARGIN * 2, 11, 2, C.primary)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.white[0], C.white[1], C.white[2])
+  doc.text('TOTAL MATERIALES', MARGIN + 4, finalY + 7.5)
+  doc.text(formatRD(total), PAGE_W - MARGIN - 4, finalY + 7.5, { align: 'right' })
+
+  return finalY + 18
 }
 
+// ─── Tabla de mano de obra ────────────────────────────────────────────────
+function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: number): number {
+  const total = manoObra.reduce((acc, m) => acc + m.subtotal, 0)
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.primary[0], C.primary[1], C.primary[2])
+  doc.text('▸  MANO DE OBRA POR ESTRUCTURA', MARGIN, startY)
+  startY += 4
+
+  autoTable(doc, {
+    startY,
+    head: [['CATEGORÍA', 'ACTIVIDAD / DESCRIPCIÓN', 'UNIDAD', 'PRECIO UNITARIO', 'SUBTOTAL']],
+    body: manoObra.map((m) => [
+      m.categoria,
+      m.descripcion,
+      m.unidad,
+      formatRD(m.precioUnitario),
+      formatRD(m.subtotal),
+    ]),
+    theme: 'striped',
+    headStyles: {
+      fillColor: C.primary,
+      textColor: C.white,
+      fontSize: 7.5,
+      fontStyle: 'bold',
+      cellPadding: 4,
+    },
+    alternateRowStyles: { fillColor: C.blueBg },
+    styles: {
+      fontSize: 7,
+      cellPadding: 3,
+      textColor: C.text,
+      lineColor: C.border,
+      lineWidth: 0.1,
+    },
+    columnStyles: {
+      0: { cellWidth: 38, fontStyle: 'bold', textColor: C.muted },
+      1: { cellWidth: 72 },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 30 },
+      4: { halign: 'right', cellWidth: 30, fontStyle: 'bold' },
+    },
+  })
+
+  const finalY = (doc as any).lastAutoTable.finalY + 6
+
+  // Total
+  roundedRect(doc, MARGIN, finalY, PAGE_W - MARGIN * 2, 11, 2, C.primary)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.white[0], C.white[1], C.white[2])
+  doc.text('TOTAL MANO DE OBRA', MARGIN + 4, finalY + 7.5)
+  doc.text(formatRD(total), PAGE_W - MARGIN - 4, finalY + 7.5, { align: 'right' })
+
+  return finalY + 18
+}
+
+// ─── Función principal ────────────────────────────────────────────────────
 export async function exportarPDF({
   proyecto,
   tipo,
   materialesConsolidados,
+  manoObra = [],
+  empresa,
 }: ExportPDFOptions): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   if (tipo === 'presupuesto' || tipo === 'completo') {
-    const y = dibujarEncabezado(doc, proyecto, 'Presupuesto Comercial')
-    agregarTablaPartidas(doc, proyecto, y)
+    const y = dibujarEncabezado(doc, proyecto, 'Presupuesto Comercial', empresa)
+    agregarTablaPartidas(doc, proyecto, y, manoObra)
   }
 
   if (tipo === 'materiales') {
-    const y = dibujarEncabezado(doc, proyecto, 'Consolidado de Materiales')
+    const y = dibujarEncabezado(doc, proyecto, 'Lista de Materiales', empresa)
     agregarTablaMateriales(doc, materialesConsolidados, y)
+  }
+
+  if (tipo === 'mano_obra') {
+    const y = dibujarEncabezado(doc, proyecto, 'Mano de Obra por Estructura', empresa)
+    agregarTablaManoObra(doc, manoObra, y)
   }
 
   if (tipo === 'completo') {
     doc.addPage()
-    const y = dibujarEncabezado(doc, proyecto, 'Anexo: Detalle de Materiales')
-    agregarTablaMateriales(doc, materialesConsolidados, y)
+    const y1 = dibujarEncabezado(doc, proyecto, 'Anexo I: Lista de Materiales', empresa)
+    agregarTablaMateriales(doc, materialesConsolidados, y1)
+
+    if (manoObra.length > 0) {
+      doc.addPage()
+      const y2 = dibujarEncabezado(doc, proyecto, 'Anexo II: Mano de Obra', empresa)
+      agregarTablaManoObra(doc, manoObra, y2)
+    }
   }
 
-  dibujarPie(doc)
+  dibujarPie(doc, empresa)
   const filename = `${tipo}-${proyecto.nombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
   doc.save(filename)
 }

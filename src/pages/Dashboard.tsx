@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useProyectos } from '@/hooks/useProyectos'
+import { useTodaManoObra } from '@/hooks/useEstructuras'
 import { usePerfil } from '@/hooks/usePerfil'
-import { formatRD, resumenPresupuesto } from '@/utils/calculos'
+import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
+import { VOLTAJES } from '@/data/estructuras_sie'
 import { 
   Plus, 
   Briefcase, 
@@ -19,15 +21,13 @@ import styles from './Dashboard.module.css'
 export default function Dashboard() {
   const navigate = useNavigate()
   const { data: proyectos = [], isLoading } = useProyectos()
+  const { data: todaManoObra = [] } = useTodaManoObra()
   const { data: perfil } = usePerfil()
 
   const totalInversion = proyectos.reduce((acc, p) => {
     const partidas = p.partidas || []
-    const r = resumenPresupuesto(partidas, {
-      porcentajeOverhead: p.overhead || 0,
-      aplicarITBIS: p.aplicar_itbis || false,
-    })
-    return acc + (r.total || 0)
+    const total = calcularTotalProyecto(partidas, todaManoObra, p.overhead || 0, p.aplicar_itbis || false)
+    return acc + total
   }, 0)
 
   const stats = [
@@ -37,7 +37,7 @@ export default function Dashboard() {
       icon: <Briefcase size={24} />, 
     },
     { 
-      label: 'Capital Invertido', 
+      label: 'Total del presupuesto', 
       value: formatRD(totalInversion), 
       icon: <TrendingUp size={24} />, 
     },
@@ -52,6 +52,24 @@ export default function Dashboard() {
       icon: <Users size={24} />, 
     },
   ]
+
+  // --- Analíticas ---
+  const borrador = proyectos.filter(p => p.estado === 'borrador').length
+  const enviados = proyectos.filter(p => p.estado === 'enviado').length
+  const aprobados = proyectos.filter(p => p.estado === 'aprobado').length
+  const totalP = proyectos.length || 1 // avoid div zero
+
+  const pBorrador = (borrador / totalP) * 100
+  const pEnviados = (enviados / totalP) * 100
+  const pAprobados = (aprobados / totalP) * 100
+
+  // Top 3 proyectos más costosos
+  const proyectosConTotal = proyectos.map(p => ({
+    ...p,
+    total: calcularTotalProyecto(p.partidas || [], todaManoObra, p.overhead || 0, p.aplicar_itbis || false)
+  }))
+  const top3 = [...proyectosConTotal].sort((a, b) => b.total - a.total).slice(0, 3)
+  const maxTotal = top3[0]?.total || 1
 
   return (
     <div className={styles.page}>
@@ -80,6 +98,41 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {proyectos.length > 0 && (
+        <div className={styles.chartsGrid}>
+          <div className={styles.chartCard} style={{ flex: 1 }}>
+            <h3 className={styles.chartTitle}><Activity size={18}/> Estado del Portafolio</h3>
+            <div className={styles.progressBar}>
+              <div style={{ width: `${pAprobados}%`, backgroundColor: '#10b981' }} title={`Aprobados: ${aprobados}`} />
+              <div style={{ width: `${pEnviados}%`, backgroundColor: '#3b82f6' }} title={`En Revisión: ${enviados}`} />
+              <div style={{ width: `${pBorrador}%`, backgroundColor: '#e2e8f0' }} title={`Borradores: ${borrador}`} />
+            </div>
+            <div className={styles.chartLegends}>
+              <span style={{ color: '#10b981' }}>● Aprobados ({aprobados})</span>
+              <span style={{ color: '#3b82f6' }}>● En Revisión ({enviados})</span>
+              <span style={{ color: '#94a3b8' }}>● Borradores ({borrador})</span>
+            </div>
+          </div>
+
+          <div className={styles.chartCard} style={{ flex: 1.5 }}>
+            <h3 className={styles.chartTitle}><TrendingUp size={18}/> Top 3 Mayor Presupuesto</h3>
+            <div className={styles.barList}>
+              {top3.map((p, i) => (
+                <div key={i} className={styles.barItem}>
+                  <div className={styles.barHeader}>
+                      <span>{p.nombre}</span>
+                      <span style={{ color: 'var(--color-primary)' }}>{formatRD(p.total)}</span>
+                  </div>
+                  <div className={styles.barTrack}>
+                      <div className={styles.barFill} style={{ width: `${(p.total / maxTotal) * 100}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className={styles.recentSection}>
         <div className={styles.recentHeader}>
@@ -111,7 +164,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <div className={styles.projectName}>{p.nombre}</div>
-                  <div className={styles.projectClient}>{p.cliente}</div>
+                  <div className={styles.projectClient}>{p.cliente} • Voltaje: {VOLTAJES.find(v => v.value === p.voltaje)?.label || p.voltaje || 'N/A'}</div>
                 </div>
               </div>
               <div className={styles.projectDate}>

@@ -312,6 +312,159 @@
 
 .empty { color: var(--color-text-muted); font-size: 0.95rem; }
 
+
+/* ── Panel Empresa PDF ────────────────────────────────── */
+.empresaPanel {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  padding: 1.75rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.empresaPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  gap: 1rem;
+}
+
+.empresaPanelTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.empresaPanelChevron {
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.empresaPanelChevronOpen {
+  transform: rotate(180deg);
+}
+
+.empresaBody {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.logoUploadArea {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.logoPreview {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  padding: 6px;
+}
+
+.logoPlaceholder {
+  width: 80px;
+  height: 80px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.logoUploadBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.logoUploadBtn label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logoUploadBtn label:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.logoUploadBtn input { display: none; }
+
+.logoHint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.logoRemove {
+  font-size: 0.72rem;
+  color: #ef4444;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 700;
+}
+
+/* ── Resumen extendido con MO ─────────────────────────── */
+.resumenMO {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.resumenMORow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.825rem;
+  padding: 0.4rem 0;
+  color: #a5b4fc;
+  font-weight: 600;
+}
+
+.resumenTotalCombinado {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+  font-weight: 900;
+  padding: 1rem 0 0;
+  margin-top: 0.5rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  color: white;
+}
+
+.resumenTotalCombinado span:last-child {
+  color: #34d399;
+}
+
 /* Responsive adjustments */
 .tableResponsive {
   width: 100%;
@@ -322,7 +475,7 @@
   .tableResponsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 80px; /* Espacio extra para que el dropdown no se corte */
+    padding-bottom: 80px;
   }
 
   .grid2 {
@@ -344,4 +497,9 @@
     width: 100%;
     justify-content: center;
   }
+
+  .empresaBody {
+    grid-template-columns: 1fr;
+  }
 }
+

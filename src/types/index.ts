@@ -77,12 +77,32 @@ export interface MaterialConsolidado {
   subtotal: number
 }
 
+export interface ManoObraLinea {
+  categoria: string
+  descripcion: string
+  unidad: string
+  precioUnitario: number
+  subtotal: number
+}
+
 export type EstadoPresupuesto = 'borrador' | 'enviado' | 'aprobado' | 'rechazado'
 
-export type TipoExportPDF = 'presupuesto' | 'materiales' | 'completo'
+export type TipoExportPDF = 'presupuesto' | 'materiales' | 'mano_obra' | 'completo'
 
 export interface ExportPDFOptions {
   proyecto: Proyecto
   tipo: TipoExportPDF
   materialesConsolidados: MaterialConsolidado[]
+  manoObra?: ManoObraLinea[]
+  empresa?: EmpresaConfig
 }
+
+export interface EmpresaConfig {
+  nombre: string
+  rnc?: string
+  direccion?: string
+  telefono?: string
+  email?: string
+  logoBase64?: string
+}
+

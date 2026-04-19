@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEstructuras, useMaterialesMultiples } from '@/hooks/useEstructuras'
 import { useProyecto, useCreateProyecto, useUpdateProyecto } from '@/hooks/useProyectos'
+import { usePerfil } from '@/hooks/usePerfil'
 import { proyectoSchema, type ProyectoFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,11 +14,11 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { resumenPresupuesto, formatRD, totalPartida } from '@/utils/calculos'
 import { exportarPDF } from '@/utils/exportPDF'
 import { VOLTAJES } from '@/data/estructuras_sie'
-import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack } from 'lucide-react'
-import type { Partida, TipoExportPDF, MaterialConsolidado } from '@/types'
+import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2 } from 'lucide-react'
+import type { Partida, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig } from '@/types'
 import styles from './NuevoPresupuesto.module.css'
 
-type TabKey = 'partidas' | 'materiales'
+type TabKey = 'partidas' | 'materiales' | 'mano_obra'
 
 export default function NuevoPresupuesto() {
   const { id } = useParams<{ id: string }>()
@@ -26,11 +27,47 @@ export default function NuevoPresupuesto() {
 
   const { data: estructuras = [], isLoading: loadingEst } = useEstructuras()
   const { data: proyectoExistente, isLoading: loadingProy } = useProyecto(id ?? '')
+  const { data: perfil } = usePerfil()
   const createMutation = useCreateProyecto()
   const updateMutation = useUpdateProyecto()
 
   const [partidas, setPartidas] = useState<Omit<Partida, 'id' | 'proyecto_id'>[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('partidas')
+  const [empresaPanelOpen, setEmpresaPanelOpen] = useState(false)
+
+  // ─── Empresa config (persiste en localStorage) ─────────────────────────
+  const [empresa, setEmpresa] = useState<EmpresaConfig>(() => {
+    try {
+      const saved = localStorage.getItem('mt_empresa_config')
+      return saved ? JSON.parse(saved) : { nombre: '', rnc: '', direccion: '', telefono: '', email: '', logoBase64: '' }
+    } catch { return { nombre: '', rnc: '', direccion: '', telefono: '', email: '', logoBase64: '' } }
+  })
+
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Sincronizar empresa con perfil al cargar por primera vez
+  useEffect(() => {
+    if (perfil && !empresa.nombre) {
+      const next = { ...empresa, nombre: perfil.empresa || '', telefono: perfil.telefono || '', email: perfil.email || '' }
+      setEmpresa(next)
+      localStorage.setItem('mt_empresa_config', JSON.stringify(next))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfil])
+
+  const saveEmpresa = (updates: Partial<EmpresaConfig>) => {
+    const next = { ...empresa, ...updates }
+    setEmpresa(next)
+    localStorage.setItem('mt_empresa_config', JSON.stringify(next))
+  }
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => saveEmpresa({ logoBase64: ev.target?.result as string })
+    reader.readAsDataURL(file)
+  }
 
   const {
     register,
@@ -88,6 +125,48 @@ export default function NuevoPresupuesto() {
 
   const { data: todosLosMateriales = [], isLoading: loadingMats } = useMaterialesMultiples(uniqueEstructuras)
 
+  // ─── Mano de Obra consolidada por estructura ────────────────────────────────
+  const [manoObraData, setManoObraData] = useState<any[]>([])
+  const [loadingMO, setLoadingMO] = useState(false)
+
+  useEffect(() => {
+    if (uniqueEstructuras.length === 0) {
+      setManoObraData([])
+      return
+    }
+    setLoadingMO(true)
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase
+        .from('estructuras_mano_obra')
+        .select('*')
+        .in('estructura', uniqueEstructuras)
+        .eq('activo', true)
+        .then(({ data }) => {
+          setManoObraData(data ?? [])
+          setLoadingMO(false)
+        })
+    })
+  }, [uniqueEstructuras])
+
+  const manoObraConsolidada = useMemo(() => {
+    const map = new Map<string, { item: any; totalPrecio: number }>()
+    partidas.forEach(partida => {
+      if (!partida.estructura) return
+      const itemsDEst = manoObraData.filter(m => m.estructura === partida.estructura)
+      itemsDEst.forEach(mo => {
+        const key = `${mo.id}`
+        const existing = map.get(key) || { item: mo, totalPrecio: 0 }
+        existing.totalPrecio += (Number(partida.cantidad) || 1) * Number(mo.precio)
+        map.set(key, existing)
+      })
+    })
+    return Array.from(map.values()).sort((a, b) => a.item.categoria.localeCompare(b.item.categoria))
+  }, [partidas, manoObraData])
+
+  const totalManoObra = useMemo(() =>
+    manoObraConsolidada.reduce((acc, r) => acc + r.totalPrecio, 0)
+  , [manoObraConsolidada])
+
   const consolidado = useMemo(() => {
     const map = new Map<string, { material: any; total: number; precioTotal: number }>()
 
@@ -107,8 +186,9 @@ export default function NuevoPresupuesto() {
         const existing = map.get(key) || { material: mat, total: 0, precioTotal: 0 }
         
         const cantRequerida = (Number(partida.cantidad) || 0) * (Number(m.cantidad) || 0)
+        const matPrecio = Number(mat.precio_igmelec) || Number(mat.precio_grape) || 0
         existing.total += cantRequerida
-        existing.precioTotal += cantRequerida * (Number(mat.precio_igmelec) || 0)
+        existing.precioTotal += cantRequerida * matPrecio
         
         map.set(key, existing)
       })
@@ -120,26 +200,51 @@ export default function NuevoPresupuesto() {
 
   const handleExport = async (tipo: TipoExportPDF) => {
     const formValues = getValues()
+
+    // Mapear el value del voltaje a su etiqueta legible
+    const voltajeLabel = VOLTAJES.find(v => v.value === formValues.voltaje)?.label || formValues.voltaje
+
+    // Aplicar overhead silenciosamente en cada precio de partida
+    const overheadFactor = 1 + (Number(formValues.overhead) || 0) / 100
+    const partidasConOverhead = (partidas as Partida[]).map(p => ({
+      ...p,
+      precio_unitario: p.precio_unitario * overheadFactor,
+      total: p.total * overheadFactor,
+    }))
+
     const proyectoParaPDF = {
       ...formValues,
+      voltaje: voltajeLabel,
+      overhead: 0,          // ya absorbido en precios
+      aplicar_itbis: formValues.aplicar_itbis,
       id: id || 'temp',
-      partidas: partidas as Partida[]
+      partidas: partidasConOverhead
     }
 
     const materialesParaPDF: MaterialConsolidado[] = consolidado.map(c => ({
       codigo: c.material.codigo,
       descripcion: c.material.descripcion,
       unidad: c.material.unidad,
-      precioUnitario: c.material.precio_igmelec,
+      precioUnitario: (Number(c.material.precio_igmelec) || Number(c.material.precio_grape) || 0) * overheadFactor,
       cantidadTotal: c.total,
-      subtotal: c.precioTotal
+      subtotal: c.precioTotal * overheadFactor
+    }))
+
+    const manoObraParaPDF: ManoObraLinea[] = manoObraConsolidada.map(r => ({
+      categoria: r.item.categoria,
+      descripcion: r.item.descripcion,
+      unidad: r.item.unidad,
+      precioUnitario: Number(r.item.precio) * overheadFactor,
+      subtotal: r.totalPrecio * overheadFactor
     }))
 
     try {
       await exportarPDF({
         proyecto: proyectoParaPDF as any,
         tipo,
-        materialesConsolidados: materialesParaPDF
+        materialesConsolidados: materialesParaPDF,
+        manoObra: manoObraParaPDF,
+        empresa: empresa.nombre ? empresa : undefined
       })
       toast({ title: 'PDF generado correctamente' })
     } catch (error) {
@@ -248,19 +353,22 @@ export default function NuevoPresupuesto() {
 
   return (
     <div className={styles.page}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 className={styles.title}>{isEditing ? 'Optimizar Proyecto' : 'Configurar Presupuesto'}</h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', fontWeight: 500, marginTop: '0.25rem' }}>
             {isEditing ? 'Ajusta los parámetros y estructuras del proyecto' : 'Crea una nueva propuesta técnica y económica'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <button type="button" onClick={() => handleExport('presupuesto')} className={styles.btnExport} title="Exportar Presupuesto Comercial">
             <FileText size={18} color="var(--color-primary)" /> Comercial
           </button>
           <button type="button" onClick={() => handleExport('materiales')} className={styles.btnExport} title="Exportar Lista de Materiales">
             <Package size={18} color="var(--color-primary)" /> Logístico
+          </button>
+          <button type="button" onClick={() => handleExport('mano_obra')} className={styles.btnExport} title="Exportar Mano de Obra" disabled={manoObraConsolidada.length === 0}>
+            <Wrench size={18} color="var(--color-primary)" /> Mano de Obra
           </button>
           <button type="button" onClick={() => handleExport('completo')} className={styles.btnExport} title="Exportar Proyecto Completo">
             <FileStack size={18} color="var(--color-primary)" /> Completo
@@ -268,7 +376,65 @@ export default function NuevoPresupuesto() {
         </div>
       </header>
 
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
+      {/* ── Panel de configuración de empresa ────────────────────────── */}
+      <div className={styles.empresaPanel}>
+        <div className={styles.empresaPanelHeader} onClick={() => setEmpresaPanelOpen(o => !o)}>
+          <span className={styles.empresaPanelTitle}>
+            <Building2 size={16} color="var(--color-primary)" />
+            Datos de empresa para PDF
+            {empresa.nombre && <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontWeight: 700, marginLeft: 4 }}>• {empresa.nombre}</span>}
+          </span>
+          <ChevronDown size={16} className={[styles.empresaPanelChevron, empresaPanelOpen ? styles.empresaPanelChevronOpen : ''].join(' ')} />
+        </div>
+
+        {empresaPanelOpen && (
+          <div className={styles.empresaBody}>
+            {/* Logo */}
+            <div className={styles.logoUploadArea}>
+              {empresa.logoBase64
+                ? <img src={empresa.logoBase64} className={styles.logoPreview} alt="Logo" />
+                : <div className={styles.logoPlaceholder}><Upload size={24} /></div>
+              }
+              <div className={styles.logoUploadBtn}>
+                <label>
+                  <Upload size={14} /> Subir Logo (PNG/JPG)
+                  <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} />
+                </label>
+                <span className={styles.logoHint}>Se mostrará en el encabezado del PDF. Recomendado: 200×200 px.</span>
+                {empresa.logoBase64 && (
+                  <button className={styles.logoRemove} type="button" onClick={() => saveEmpresa({ logoBase64: '' })}>✕ Quitar logo</button>
+                )}
+              </div>
+            </div>
+            {/* Campos */}
+            <div className={styles.field}>
+              <label>Nombre de la Empresa</label>
+              <Input value={empresa.nombre} onChange={e => saveEmpresa({ nombre: e.target.value })} placeholder="Ej: Constructora Eléctrica MT, S.R.L." />
+            </div>
+            <div className={styles.field}>
+              <label>RNC / NIF</label>
+              <Input value={empresa.rnc || ''} onChange={e => saveEmpresa({ rnc: e.target.value })} placeholder="Ej: 1-31-12345-6" />
+            </div>
+            <div className={styles.field}>
+              <label>Dirección</label>
+              <Input value={empresa.direccion || ''} onChange={e => saveEmpresa({ direccion: e.target.value })} placeholder="Ej: C/ Primera #5, Santo Domingo" />
+            </div>
+            <div className={styles.field}>
+              <label>Teléfono</label>
+              <Input value={empresa.telefono || ''} onChange={e => saveEmpresa({ telefono: e.target.value })} placeholder="Ej: +1 (809) 000-0000" />
+            </div>
+            <div className={styles.field}>
+              <label>Correo Electrónico</label>
+              <Input value={empresa.email || ''} onChange={e => saveEmpresa({ email: e.target.value })} placeholder="Ej: info@miempresa.com" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'BUTTON') e.preventDefault() }}
+      >
         <section className={styles.card}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionIcon}><FileText size={20} /></div>
@@ -349,6 +515,14 @@ export default function NuevoPresupuesto() {
             <Box size={18} /> Materiales Consolidados
             {consolidado.length > 0 && <span className={styles.badge}>{consolidado.length}</span>}
           </button>
+          <button
+            type="button"
+            className={[styles.tab, activeTab === 'mano_obra' ? styles.tabActivo : ''].join(' ')}
+            onClick={() => setActiveTab('mano_obra')}
+          >
+            <Wrench size={18} /> Mano de Obra
+            {manoObraConsolidada.length > 0 && <span className={styles.badge}>{manoObraConsolidada.length}</span>}
+          </button>
         </div>
 
         {activeTab === 'partidas' && (
@@ -392,13 +566,17 @@ export default function NuevoPresupuesto() {
                           type="number"
                           step={0.01}
                           style={{ textAlign: 'right', fontWeight: 600 }}
-                          value={p.precio_unitario}
-                          onChange={(e) => updatePartidaField(i, 'precio_unitario', Number(e.target.value))}
+                          value={Number((p.precio_unitario * (1 + (Number(overhead) || 0) / 100)).toFixed(2))}
+                          onChange={(e) => {
+                            const valWithOverhead = Number(e.target.value);
+                            const factor = 1 + (Number(overhead) || 0) / 100;
+                            updatePartidaField(i, 'precio_unitario', valWithOverhead / factor);
+                          }}
                         />
                       </td>
                       <td style={{ fontWeight: 800, textAlign: 'right', color: 'var(--color-primary)', fontSize: '0.95rem' }}>
-                        {formatRD(p.total)}
-                      </td>
+                          {formatRD(p.total * (1 + (Number(overhead) || 0) / 100))}
+                        </td>
                       <td style={{ textAlign: 'center', paddingRight: '2rem' }}>
                         <button type="button" className={styles.btnDel} onClick={() => removePartida(i)}>
                           <Trash2 size={18} />
@@ -447,6 +625,7 @@ export default function NuevoPresupuesto() {
                       <th>Descripción del Material</th>
                       <th style={{ textAlign: 'center' }}>Unidad</th>
                       <th style={{ textAlign: 'right' }}>Cantidad</th>
+                      <th style={{ textAlign: 'right' }}>Precio Unit.</th>
                       <th style={{ textAlign: 'right' }}>Valorización</th>
                     </tr>
                   </thead>
@@ -457,7 +636,8 @@ export default function NuevoPresupuesto() {
                         <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>{item.material.descripcion}</td>
                         <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--color-text-muted)' }}>{item.material.unidad}</td>
                         <td style={{ textAlign: 'right', fontWeight: 900 }}>{item.total.toLocaleString()}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(item.precioTotal)}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{formatRD((Number(item.material.precio_igmelec) || Number(item.material.precio_grape) || 0) * (1 + (Number(overhead) || 0) / 100))}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(item.precioTotal * (1 + (Number(overhead) || 0) / 100))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -467,17 +647,62 @@ export default function NuevoPresupuesto() {
           </section>
         )}
 
+        {activeTab === 'mano_obra' && (
+          <section className={[styles.card, styles.cardTable].join(' ')}>
+            <div className={styles.sectionHeader} style={{ padding: '1.5rem 2rem 1rem', marginBottom: 0 }}>
+              <div className={styles.sectionIcon}><Wrench size={20} /></div>
+              <h3 className={styles.sectionTitle}>Mano de Obra por Estructura</h3>
+            </div>
+            {loadingMO ? (
+              <div style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)' }}>
+                <Loader2 className="animate-spin mb-4" size={40} style={{ margin: '0 auto', color: 'var(--color-primary)' }} />
+                <p style={{ fontWeight: 600 }}>Cargando actividades de mano de obra...</p>
+              </div>
+            ) : manoObraConsolidada.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)' }}>
+                <Wrench size={48} style={{ margin: '0 auto 1rem', opacity: 0.1 }} />
+                <p style={{ fontWeight: 600 }}>Configura estructuras para proyectar la mano de obra.</p>
+              </div>
+            ) : (
+              <div className={styles.tableResponsive} style={{ padding: '1rem 2rem 2rem' }}>
+                <table className={styles.tableMat}>
+                  <thead>
+                    <tr>
+                      <th>Categoría</th>
+                      <th>Actividad</th>
+                      <th style={{ textAlign: 'center' }}>Unidad</th>
+                      <th style={{ textAlign: 'right' }}>Precio Unit.</th>
+                      <th style={{ textAlign: 'right' }}>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {manoObraConsolidada.map((row, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{row.item.categoria}</td>
+                        <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>{row.item.descripcion}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--color-text-muted)' }}>{row.item.unidad}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatRD(Number(row.item.precio) * (1 + (Number(overhead) || 0) / 100))}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(row.totalPrecio * (1 + (Number(overhead) || 0) / 100))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800, padding: '1rem 0.75rem', fontSize: '0.9rem', borderTop: '2px solid var(--color-border)', color: 'var(--color-text-muted)' }}>TOTAL MANO DE OBRA</td>
+                      <td style={{ textAlign: 'right', fontWeight: 900, fontSize: '1rem', color: 'var(--color-primary)', borderTop: '2px solid var(--color-border)', padding: '1rem 0.75rem' }}>{formatRD(totalManoObra * (1 + (Number(overhead) || 0) / 100))}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className={styles.resumen}>
           <div className={styles.resumenRow}>
-            <span>Subtotal de Materiales</span>
-            <span style={{ color: 'white' }}>{formatRD(resumen.subtotal)}</span>
+            <span>Subtotal Materiales</span>
+            <span style={{ color: 'white' }}>{formatRD(resumen.subtotal + resumen.costoOverhead)}</span>
           </div>
-          {resumen.costoOverhead > 0 && (
-            <div className={styles.resumenRow}>
-              <span>Overhead Administrativo ({overhead}%)</span>
-              <span style={{ color: 'white' }}>{formatRD(resumen.costoOverhead)}</span>
-            </div>
-          )}
           {resumen.montoITBIS > 0 && (
             <div className={styles.resumenRow}>
               <span>Gravamen ITBIS (18%)</span>
@@ -485,9 +710,22 @@ export default function NuevoPresupuesto() {
             </div>
           )}
           <div className={[styles.resumenRow, styles.bold].join(' ')}>
-            <span>TOTAL ESTIMADO</span>
+            <span>TOTAL MATERIALES</span>
             <span>{formatRD(resumen.total)}</span>
           </div>
+
+          {totalManoObra > 0 && (
+            <div className={styles.resumenMO}>
+              <div className={styles.resumenMORow}>
+                <span>🔧 Mano de Obra Estructura</span>
+                <span>{formatRD(totalManoObra * (1 + (Number(overhead) || 0) / 100))}</span>
+              </div>
+              <div className={styles.resumenTotalCombinado}>
+                <span>TOTAL COMBINADO</span>
+                <span>{formatRD(resumen.total + (totalManoObra * (1 + (Number(overhead) || 0) / 100)))}</span>
+              </div>
+            </div>
+          )}
         </section>
 
         <div className={styles.footActions}>

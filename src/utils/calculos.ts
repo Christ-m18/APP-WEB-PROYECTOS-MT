@@ -5,7 +5,7 @@ export function totalPartida(cantidad: number, precioUnitario: number): number {
 }
 
 export function subtotal(partidas: Partida[]): number {
-  return partidas.reduce((acc, p) => acc + (p.total ?? 0), 0)
+  return partidas.reduce((acc, p) => acc + (p.total ?? (Number(p.cantidad) * Number(p.precio_unitario))), 0)
 }
 
 export function calcularITBIS(base: number, pct = 0.18): number {
@@ -47,4 +47,31 @@ export function formatRD(valor: number | null | undefined): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+export function calcularTotalProyecto(
+  partidas: Partida[],
+  todaManoObra: any[],
+  overheadPct: number,
+  aplicarITBIS: boolean
+): number {
+  const { total: totalPartidas } = resumenPresupuesto(partidas, {
+    porcentajeOverhead: overheadPct,
+    aplicarITBIS
+  })
+
+  let totalMOBase = 0
+  partidas.forEach(p => {
+    if (!p.estructura) return
+    const moForEst = todaManoObra.filter(m => m.estructura === p.estructura)
+    moForEst.forEach(mo => {
+      totalMOBase += (Number(p.cantidad) || 1) * Number(mo.precio)
+    })
+  })
+
+  // MO overhead (sin ITBIS, en RD el ITBIS suele aplicar a materiales en este contexto, o bien el usuario reportó que la suma es excesiva por esto)
+  const moOverhead = totalMOBase * (overheadPct / 100)
+  const totalMOFinal = totalMOBase + moOverhead
+
+  return totalPartidas + totalMOFinal
 }
