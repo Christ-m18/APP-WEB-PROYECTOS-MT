@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import Header from './Header'
@@ -7,15 +8,16 @@ import styles from './Layout.module.css'
 
 export default function Layout() {
   const location = useLocation()
-  
-  // El Sidebar se contrae automáticamente en toda la aplicación
-  const isCollapsed = true
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   return (
     <div className={styles.shell}>
-      <Header />
+      <Header toggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)} />
       <div className={styles.body}>
-        <Sidebar isCollapsed={isCollapsed} />
+        <Sidebar 
+          isMobileMenuOpen={isMobileMenuOpen} 
+          closeMobileMenu={() => setIsMobileMenuOpen(false)} 
+        />
         <main className={styles.main}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname}>

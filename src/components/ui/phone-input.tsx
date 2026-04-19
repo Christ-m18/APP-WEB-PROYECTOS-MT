@@ -96,6 +96,7 @@ interface PhoneInputProps {
   readOnly?: boolean
   className?: string
   inputClassName?: string
+  buttonClassName?: string
   placeholder?: string
   darkTheme?: boolean
 }
@@ -107,6 +108,7 @@ export function PhoneInput({
   readOnly = false,
   className,
   inputClassName,
+  buttonClassName,
   placeholder,
   darkTheme = false,
 }: PhoneInputProps) {
@@ -194,37 +196,38 @@ export function PhoneInput({
   const ph = placeholder ?? selectedCountry.format.replace(/#/g, '0')
 
   return (
-    <div ref={containerRef} className={cn('relative flex items-stretch', className)}>
-      {/* Botón selector de país */}
+    <div 
+      ref={containerRef} 
+      className={cn('relative flex items-center gap-1.5 w-full h-full', className)}
+    >
+      {/* Botón selector de país (Separado) */}
       <button
         type="button"
         disabled={readOnly}
         onClick={() => !readOnly && setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-1.5 shrink-0 border rounded-l-md px-2.5 transition-all duration-200',
-          'text-sm font-bold select-none',
+          'flex items-center justify-center gap-1 shrink-0 px-2.5 transition-all duration-200',
+          'text-sm font-bold select-none outline-none',
+          'focus-visible:ring-4 focus-visible:ring-indigo-500/10',
           darkTheme
-            ? [
-                'bg-black/20 border-white/10 text-white/80',
-                'hover:bg-black/30 hover:border-white/20',
-                readOnly ? 'opacity-60 cursor-default' : 'cursor-pointer',
-              ]
-            : [
-                'bg-slate-50 border-slate-200 text-slate-700',
-                'hover:bg-slate-100 hover:border-slate-300',
-                readOnly ? 'bg-slate-50 cursor-default opacity-70' : 'cursor-pointer',
-              ]
+            ? 'bg-black/25 border border-white/10 text-white/90 shadow-sm'
+            : 'bg-gradient-to-b from-slate-100 to-slate-50 text-slate-600 border-0 shadow-none',
+          readOnly
+            ? 'opacity-60 cursor-not-allowed'
+            : darkTheme
+              ? 'hover:border-white/20 hover:bg-black/30 cursor-pointer'
+              : 'hover:from-indigo-50 hover:to-slate-50 hover:text-indigo-600 cursor-pointer',
+          buttonClassName || 'rounded-lg min-h-[2.5rem]'
         )}
-        style={{ height: '100%', minHeight: '2.5rem' }}
       >
         <CountryFlag iso={selectedCountry.iso} />
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '-0.01em', marginLeft: '2px' }}>
           {selectedCountry.dialCode}
         </span>
-        {!readOnly && <ChevronDown size={12} style={{ opacity: 0.6, marginLeft: 1 }} />}
+        {!readOnly && <ChevronDown size={13} style={{ opacity: 0.5, marginLeft: 2 }} />}
       </button>
 
-      {/* Input del número */}
+      {/* Input del número (Separado) */}
       <input
         type="tel"
         inputMode="numeric"
@@ -234,21 +237,14 @@ export function PhoneInput({
         readOnly={readOnly}
         placeholder={ph}
         className={cn(
-          'flex-1 min-w-0 rounded-r-md border-t border-r border-b px-3 py-2 text-sm font-medium',
-          'transition-all duration-200 outline-none',
+          'flex-1 min-w-0 px-3 py-2 text-sm font-medium outline-none transition-all duration-200',
+          'border shadow-sm',
+          'focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md',
           darkTheme
-            ? [
-                'bg-black/25 border-white/10 text-white placeholder:text-white/30',
-                'focus:bg-black/40 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15',
-                readOnly ? 'cursor-default caret-transparent' : '',
-              ]
-            : [
-                'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400',
-                'hover:border-slate-300',
-                'focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10',
-                readOnly ? 'bg-slate-50 border-slate-200 text-slate-600 cursor-default caret-transparent' : '',
-              ],
-          inputClassName
+            ? 'bg-black/25 border-white/10 text-white placeholder:text-white/40'
+            : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400',
+          readOnly ? 'cursor-default caret-transparent bg-slate-50 opacity-70' : 'hover:border-slate-300 hover:shadow-md',
+          inputClassName || 'rounded-md min-h-[2.5rem]'
         )}
       />
 

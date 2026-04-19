@@ -6,15 +6,10 @@ import {
   Search, 
   Edit3, 
   Trash2, 
-  Calendar, 
-  User, 
-  ArrowUpRight,
-  Filter,
   CheckCircle2,
   Clock,
   XCircle,
   FileText,
-  Activity,
   FolderSync
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
@@ -82,64 +77,66 @@ export default function Proyectos() {
       </div>
 
       <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Proyecto / Cliente</th>
-              <th>Nivel Tensión</th>
-              <th>Inversión Estimada</th>
-              <th>Estado</th>
-              <th style={{ textAlign: 'right' }}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Sincronizando archivos...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>No se encontraron registros.</td></tr>
-            ) : (
-              filtered.map(p => {
-                const { total } = resumenPresupuesto(p.partidas ?? [], {
-                  porcentajeOverhead: p.overhead,
-                  aplicarITBIS: p.aplicar_itbis,
+        <div className={styles.tableResponsive}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Proyecto / Cliente</th>
+                <th>Nivel Tensión</th>
+                <th>Inversión Estimada</th>
+                <th>Estado</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Sincronizando archivos...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '5rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>No se encontraron registros.</td></tr>
+              ) : (
+                filtered.map(p => {
+                  const { total } = resumenPresupuesto(p.partidas ?? [], {
+                    porcentajeOverhead: p.overhead,
+                    aplicarITBIS: p.aplicar_itbis,
+                  })
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <div className={styles.nombre}>{p.nombre}</div>
+                        <div className={styles.cliente}>{p.cliente}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 800, color: 'var(--color-text)', fontSize: '0.9rem' }}>{p.voltaje || 'N/A'}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 900, color: 'var(--color-primary)', fontSize: '0.95rem' }}>{formatRD(total)}</div>
+                      </td>
+                      <td>{getStatusBadge(p.estado)}</td>
+                      <td>
+                        <div className={styles.actionsCell}>
+                          <button 
+                            className={styles.btnEdit} 
+                            onClick={() => void navigate(`/app/presupuesto/${p.id}`)}
+                            title="Editar parámetros"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button 
+                            className={styles.btnDel} 
+                            onClick={() => void handleDelete(p.id, p.nombre)}
+                            title="Eliminar registro"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
                 })
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <div className={styles.nombre}>{p.nombre}</div>
-                      <div className={styles.cliente}>{p.cliente}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 800, color: 'var(--color-text)', fontSize: '0.9rem' }}>{p.voltaje || 'N/A'}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 900, color: 'var(--color-primary)', fontSize: '0.95rem' }}>{formatRD(total)}</div>
-                    </td>
-                    <td>{getStatusBadge(p.estado)}</td>
-                    <td>
-                      <div className={styles.actionsCell}>
-                        <button 
-                          className={styles.btnEdit} 
-                          onClick={() => void navigate(`/app/presupuesto/${p.id}`)}
-                          title="Editar parámetros"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button 
-                          className={styles.btnDel} 
-                          onClick={() => void handleDelete(p.id, p.nombre)}
-                          title="Eliminar registro"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

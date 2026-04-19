@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, ChevronDown, Check } from 'lucide-react'
 import styles from './searchable-select.module.css'
 import { formatRD } from '@/utils/calculos'
@@ -14,7 +15,32 @@ interface SearchableSelectProps {
 export function SearchableSelect({ options, value, onChange, placeholder }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const updatePosition = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      setCoords({
+        top: rect.bottom + 4, // 4px margin
+        left: rect.left,
+        width: rect.width
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      updatePosition()
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+    }
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [open, updatePosition])
 
   const filtered = options.filter((o) => {
     const name = String(o?.estructura || '').toLowerCase()
@@ -23,7 +49,11 @@ export function SearchableSelect({ options, value, onChange, placeholder }: Sear
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false)
       }
     }
@@ -44,8 +74,18 @@ export function SearchableSelect({ options, value, onChange, placeholder }: Sear
         <ChevronDown size={18} className={styles.chevron} style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
 
-      {open && (
-        <div className={styles.dropdown}>
+      {open && createPortal(
+        <div 
+          className={styles.dropdown} 
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            width: coords.width,
+            zIndex: 9999
+          }}
+        >
           <div className={styles.searchWrapper}>
             <Search size={16} className={styles.searchIcon} />
             <input
@@ -82,7 +122,8 @@ export function SearchableSelect({ options, value, onChange, placeholder }: Sear
               ))
             )}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

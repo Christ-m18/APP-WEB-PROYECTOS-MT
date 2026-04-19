@@ -108,3 +108,59 @@
 .sidebar:hover .btnLogOut {
   padding: 0.85rem 1.25rem;
 }
+
+/* Backdrop para mobile */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 140;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.backdropActive {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Responsive Mobile Sidebar */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    z-index: 150;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar.mobileOpen {
+    transform: translateX(0);
+  }
+
+  /* Reset hover expansion behaviors on mobile */
+  .sidebar:hover {
+    width: 260px;
+  }
+  
+  .link {
+    padding: 0.85rem 1.25rem;
+  }
+  
+  .label {
+    opacity: 1;
+  }
+  
+  .logoutSection {
+    padding: 1.5rem 1rem 0;
+  }
+
+  .btnLogOut {
+    padding: 0.85rem 1.25rem;
+  }
+}

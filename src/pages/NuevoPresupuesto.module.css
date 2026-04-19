@@ -311,3 +311,37 @@
 }
 
 .empty { color: var(--color-text-muted); font-size: 0.95rem; }
+
+/* Responsive adjustments */
+.tableResponsive {
+  width: 100%;
+}
+
+
+@media (max-width: 768px) {
+  .tableResponsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px; /* Espacio extra para que el dropdown no se corte */
+  }
+
+  .grid2 {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .resumen {
+    max-width: 100%;
+    margin-left: 0;
+  }
+
+  .footActions {
+    flex-direction: column-reverse;
+    gap: 1rem;
+  }
+
+  .btnSave, .btnCancel, .btnExport {
+    width: 100%;
+    justify-content: center;
+  }
+}

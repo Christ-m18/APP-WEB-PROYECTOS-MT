@@ -118,6 +118,7 @@
 
 .field {
   margin-bottom: 1.75rem;
+  min-width: 0;
 }
 
 .label {
@@ -139,7 +140,7 @@
 
 .inputIcon {
   position: absolute;
-  left: 1.25rem;
+  left: 0.9rem;
   color: #64748b;
   transition: all 0.2s ease;
   pointer-events: none;
@@ -151,8 +152,8 @@
   background: rgba(0, 0, 0, 0.25);
   border: 1.5px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 0 1.25rem 0 3.5rem;
-  font-size: 1rem;
+  padding: 0 1rem 0 2.5rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -173,7 +174,39 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
+  align-items: end;
 }
+
+.rowUneven {
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 1.25rem;
+  align-items: end;
+}
+
+/* Input sin ícono — padding simétrico */
+.inputNoIcon {
+  width: 100%;
+  height: 3.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.inputNoIcon:focus {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: var(--color-primary-lt);
+  box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.15);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.inputNoIcon::placeholder { color: rgba(148, 163, 184, 0.7); }
 
 .alert {
   display: block;
@@ -245,17 +278,77 @@
   color: #94a3b8;
 }
 
-/* Phone input field override for dark theme */
-.phoneInputField {
-  height: 3.5rem !important;
-  font-size: 1rem !important;
-  font-weight: 500 !important;
-  border-radius: 0 16px 16px 0 !important;
+.phoneContainer {
+  width: 100% !important;
+  display: flex;
 }
 
-:global(.phone-input-wrapper-dark) button:first-child {
-  border-radius: 16px 0 0 16px;
-  height: 3.5rem;
+/* Estilos separados para PhoneInput (Botón e Input independientes) */
+.phoneInputField {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 3.5rem !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  padding: 0 1rem !important; /* Maximizado para dar más respiro */
+  color: white !important;
+  transition: all 0.3s ease;
+}
+
+.phoneCountryBtn {
+  height: 3.5rem !important;
+  width: auto !important;
+  flex-shrink: 0 !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  padding: 0 0.65rem !important;
+  color: white !important;
+  white-space: nowrap !important;
+  transition: all 0.3s ease;
+}
+
+.phoneInputField:focus, .phoneCountryBtn:hover {
+  background: rgba(0, 0, 0, 0.4) !important;
+  border-color: var(--color-primary-lt) !important;
+  box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.15) !important;
+}
+
+/* Banner de error contextual en el login */
+.loginErrorBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  animation: bannerFadeIn 0.25s ease;
+}
+
+.loginErrorLink {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+  opacity: 0.9;
+}
+.loginErrorLink:hover { opacity: 1; text-decoration: underline; }
+
+.inputError {
+  border-color: rgba(244, 63, 94, 0.5) !important;
+  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.12) !important;
+}
+
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 500px) {

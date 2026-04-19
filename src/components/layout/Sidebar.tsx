@@ -20,9 +20,11 @@ const NAV = [
 
 interface SidebarProps {
   isCollapsed?: boolean
+  isMobileMenuOpen?: boolean
+  closeMobileMenu?: () => void
 }
 
-export default function Sidebar({ isCollapsed }: SidebarProps) {
+export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu }: SidebarProps) {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -31,9 +33,18 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
   }
 
   return (
-    <aside className={[styles.sidebar, isCollapsed ? styles.collapsed : ''].join(' ')}>
-      <nav className={styles.nav}>
-        {NAV.map(({ to, label, icon, end }) => (
+    <>
+      <div 
+        className={[styles.backdrop, isMobileMenuOpen ? styles.backdropActive : ''].join(' ')} 
+        onClick={closeMobileMenu}
+      />
+      <aside className={[
+        styles.sidebar, 
+        isCollapsed ? styles.collapsed : '',
+        isMobileMenuOpen ? styles.mobileOpen : ''
+      ].join(' ')}>
+        <nav className={styles.nav}>
+          {NAV.map(({ to, label, icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -57,5 +68,6 @@ export default function Sidebar({ isCollapsed }: SidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   )
 }

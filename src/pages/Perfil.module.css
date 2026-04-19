@@ -196,16 +196,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-muted);
+  color: #94a3b8;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btnToggleEdit svg {
+  transition: color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  stroke: currentColor;
 }
 
 .btnToggleEdit:hover {
-  background: white;
+  background: #ede9fe;
   border-color: var(--color-primary);
   color: var(--color-primary);
-  transform: rotate(15deg);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+  transform: scale(1.08);
+}
+
+.btnToggleEdit:hover svg {
+  transform: rotate(18deg);
+  color: var(--color-primary);
 }
 
 .field label {

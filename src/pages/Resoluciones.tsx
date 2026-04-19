@@ -40,7 +40,8 @@ function MaterialesDetalle({ estructura }: { estructura: string }) {
               <p className="mt-2 text-sm italic">Sin materiales en esta estructura.</p>
             </div>
           ) : (
-            <table className={styles.tableMat}>
+            <div className={styles.tableResponsive}>
+              <table className={styles.tableMat}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                   <th style={{ padding: '0.75rem 1rem', fontSize: '0.7rem' }}>CÓDIGO</th>
@@ -62,6 +63,7 @@ function MaterialesDetalle({ estructura }: { estructura: string }) {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
         </motion.div>
       </td>
@@ -132,7 +134,8 @@ export default function Resoluciones() {
 
       {/* Tabla estilo Obsidian */}
       <div className={styles.table}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className={styles.tableResponsive}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               <th className={styles.expandCell}></th>
@@ -182,6 +185,7 @@ export default function Resoluciones() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

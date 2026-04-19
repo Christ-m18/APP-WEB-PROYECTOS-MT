@@ -134,3 +134,16 @@
 }
 .emptyRow { color: var(--color-text-muted); font-style: italic; text-align: center; padding: 1.5rem !important; }
 .numCell { text-align: right !important; }
+
+/* Responsive adjustments */
+.tableResponsive {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .tableResponsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+

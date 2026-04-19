@@ -234,6 +234,7 @@ export default function Perfil() {
                             onCountryChange={setPhoneCountry}
                             readOnly={!isEditing}
                             inputClassName={!isEditing ? styles.inputReadOnly : ''}
+                            buttonClassName={!isEditing ? styles.inputReadOnly : ''}
                           />
                         )}
                       />

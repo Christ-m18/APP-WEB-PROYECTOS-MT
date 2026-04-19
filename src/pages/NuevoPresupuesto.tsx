@@ -357,7 +357,7 @@ export default function NuevoPresupuesto() {
               <div className={styles.sectionIcon}><Layers size={20} /></div>
               <h3 className={styles.sectionTitle}>Desglose de Partidas</h3>
             </div>
-            <div>
+            <div className={styles.tableResponsive}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -439,7 +439,7 @@ export default function NuevoPresupuesto() {
                 <p style={{ fontWeight: 600 }}>Configura estructuras para proyectar el listado de materiales.</p>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto', padding: '1rem 2rem 2rem' }}>
+              <div className={styles.tableResponsive} style={{ padding: '1rem 2rem 2rem' }}>
                 <table className={styles.tableMat}>
                   <thead>
                     <tr>

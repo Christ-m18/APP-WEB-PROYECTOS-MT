@@ -2,10 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePerfil } from '@/hooks/usePerfil'
 import { supabase } from '@/lib/supabase'
-import { Cpu, User, UserCircle, Camera, LogOut, ChevronDown, Settings } from 'lucide-react'
+import { Menu, Cpu, User, UserCircle, Camera, LogOut, ChevronDown, Settings } from 'lucide-react'
 import styles from './Header.module.css'
 
-export default function Header() {
+interface HeaderProps {
+  toggleMobileMenu?: () => void
+}
+
+export default function Header({ toggleMobileMenu }: HeaderProps) {
   const navigate = useNavigate()
   const [initials, setInitials] = useState<string | React.ReactElement>('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -62,6 +66,11 @@ export default function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
+        {toggleMobileMenu && (
+          <button className={styles.menuButton} onClick={toggleMobileMenu} aria-label="Abrir Menú">
+            <Menu size={24} />
+          </button>
+        )}
         <div className={styles.logoContainer}>
           <div className={styles.logoSymbol}>
             <Cpu size={24} color="white" />

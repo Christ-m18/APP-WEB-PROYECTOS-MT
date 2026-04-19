@@ -175,3 +175,38 @@
   border-color: #e11d48;
   transform: translateY(-1px);
 }
+
+/* Responsive adjustments */
+.tableResponsive {
+  width: 100%;
+}
+
+
+@media (max-width: 768px) {
+  .tableResponsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px; 
+  }
+
+  .topBar {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .btnNew {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .searchBar {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .searchInput {
+    width: 100%;
+  }
+}
