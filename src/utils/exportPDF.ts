@@ -20,7 +20,6 @@ const C = {
 }
 
 const PAGE_W = 210
-const PAGE_H = 297
 const MARGIN = 14
 
 // ─── Helper: dibujar rectángulo redondeado ─────────────────────────────────
@@ -334,7 +333,7 @@ function agregarTablaMateriales(doc: jsPDF, materiales: MaterialConsolidado[], s
   return finalY + 18
 }
 
-// ─── Tabla de mano de obra ────────────────────────────────────────────────
+// ─── Tabla de mano de obra (agrupada por estructura) ──────────────────────
 function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: number): number {
   const total = manoObra.reduce((acc, m) => acc + m.subtotal, 0)
 
@@ -344,16 +343,40 @@ function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: num
   doc.text('▸  MANO DE OBRA POR ESTRUCTURA', MARGIN, startY)
   startY += 4
 
+  // Group by estructura
+  const grouped: Record<string, ManoObraLinea[]> = {}
+  manoObra.forEach(m => {
+    const key = m.estructura || 'SIN ESTRUCTURA'
+    if (!grouped[key]) grouped[key] = []
+    grouped[key].push(m)
+  })
+
+  // Build table body with structure sub-headers
+  const body: any[][] = []
+  Object.entries(grouped).forEach(([estName, items]) => {
+    const subtotalEst = items.reduce((a, m) => a + m.subtotal, 0)
+    // Structure header row (merged across all columns visually via styling)
+    body.push([
+      { content: `⬥  ${estName}  (${items.length} ${items.length === 1 ? 'actividad' : 'actividades'} · ×${items[0]?.cantidad || 1})`, colSpan: 5, styles: { fillColor: [230, 237, 255] as [number, number, number], textColor: C.primary, fontStyle: 'bold' as const, fontSize: 7.5, cellPadding: 4 } },
+      { content: formatRD(subtotalEst), styles: { fillColor: [230, 237, 255] as [number, number, number], textColor: C.primary, fontStyle: 'bold' as const, fontSize: 7.5, halign: 'right' as const, cellPadding: 4 } },
+    ])
+    // Item rows
+    items.forEach(m => {
+      body.push([
+        m.categoria,
+        m.descripcion,
+        m.unidad,
+        m.cantidad,
+        formatRD(m.precioUnitario),
+        formatRD(m.subtotal),
+      ])
+    })
+  })
+
   autoTable(doc, {
     startY,
-    head: [['CATEGORÍA', 'ACTIVIDAD / DESCRIPCIÓN', 'UNIDAD', 'PRECIO UNITARIO', 'SUBTOTAL']],
-    body: manoObra.map((m) => [
-      m.categoria,
-      m.descripcion,
-      m.unidad,
-      formatRD(m.precioUnitario),
-      formatRD(m.subtotal),
-    ]),
+    head: [['CATEGORÍA', 'ACTIVIDAD / DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO UNITARIO', 'SUBTOTAL']],
+    body,
     theme: 'striped',
     headStyles: {
       fillColor: C.primary,
@@ -371,11 +394,12 @@ function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: num
       lineWidth: 0.1,
     },
     columnStyles: {
-      0: { cellWidth: 38, fontStyle: 'bold', textColor: C.muted },
-      1: { cellWidth: 72 },
-      2: { halign: 'center', cellWidth: 18 },
-      3: { halign: 'right', cellWidth: 30 },
-      4: { halign: 'right', cellWidth: 30, fontStyle: 'bold' },
+      0: { cellWidth: 32, fontStyle: 'bold', textColor: C.muted },
+      1: { cellWidth: 62 },
+      2: { halign: 'center', cellWidth: 16 },
+      3: { halign: 'center', cellWidth: 14 },
+      4: { halign: 'right', cellWidth: 28 },
+      5: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
     },
   })
 

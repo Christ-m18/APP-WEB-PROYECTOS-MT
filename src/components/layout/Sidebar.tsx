@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { queryClient } from '@/lib/queryClient'
 import { 
   LayoutDashboard, 
   FolderSearch, 
@@ -28,6 +29,7 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
   const navigate = useNavigate()
 
   const handleLogout = async () => {
+    queryClient.clear()
     await supabase.auth.signOut()
     void navigate('/')
   }

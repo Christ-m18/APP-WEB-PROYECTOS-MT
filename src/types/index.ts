@@ -78,9 +78,11 @@ export interface MaterialConsolidado {
 }
 
 export interface ManoObraLinea {
+  estructura: string
   categoria: string
   descripcion: string
   unidad: string
+  cantidad: number
   precioUnitario: number
   subtotal: number
 }

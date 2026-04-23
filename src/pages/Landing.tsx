@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Zap, Shield, BarChart3, ArrowRight, Cpu, MousePointerClick, ShieldCheck, FileCheck } from 'lucide-react'
+import { Zap, BarChart3, ArrowRight, Cpu, MousePointerClick, ShieldCheck, FileCheck } from 'lucide-react'
 import styles from './Landing.module.css'
 
 export default function Landing() {

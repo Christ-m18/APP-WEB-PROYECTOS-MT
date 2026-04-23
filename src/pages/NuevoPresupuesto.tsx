@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -11,10 +11,12 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import ImportarPlanoModal from '@/components/ImportarPlanoModal'
+import { mergeConPartidas } from '@/lib/planImporter'
 import { resumenPresupuesto, formatRD, totalPartida } from '@/utils/calculos'
 import { exportarPDF } from '@/utils/exportPDF'
 import { VOLTAJES } from '@/data/estructuras_sie'
-import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2 } from 'lucide-react'
+import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp } from 'lucide-react'
 import type { Partida, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig } from '@/types'
 import styles from './NuevoPresupuesto.module.css'
 
@@ -34,6 +36,7 @@ export default function NuevoPresupuesto() {
   const [partidas, setPartidas] = useState<Omit<Partida, 'id' | 'proyecto_id'>[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('partidas')
   const [empresaPanelOpen, setEmpresaPanelOpen] = useState(false)
+  const [importarOpen, setImportarOpen] = useState(false)
 
   // ─── Empresa config (persiste en localStorage) ─────────────────────────
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => {
@@ -148,19 +151,63 @@ export default function NuevoPresupuesto() {
     })
   }, [uniqueEstructuras])
 
+  const matchStructureLabor = (matEstructura: string, laborEstructura: string) => {
+    if (!matEstructura || !laborEstructura) return false;
+    
+    const matOrig = matEstructura.trim().toUpperCase();
+    const labOrig = laborEstructura.trim().toUpperCase();
+    
+    if (matOrig === labOrig) return true;
+    
+    const matNorm = matOrig.replace(/\s+/g, '');
+    const labNorm = labOrig.replace(/\s+/g, '');
+    
+    if (matNorm === labNorm) return true;
+    
+    // Rule: Wooden posts where labor has "POSTE " prefix
+    if (labNorm.startsWith('POSTE') && matNorm === labNorm.replace('POSTE', '')) {
+      return true;
+    }
+    
+    // Rule: Prefix matching for variants separated by space
+    // e.g. "MT-101 (55-5)" vs "MT-101", "M TEND. 4/3 ALUMINIO" vs "M TEND. 4/3"
+    if (matOrig.startsWith(labOrig) && (matOrig[labOrig.length] === ' ' || matOrig[labOrig.length] === '(')) {
+      return true;
+    }
+    
+    // Rule: Prefix matching for variants separated by spaces in origin but normalized out
+    // e.g. "PR - 202 CRUCETA DE 8'" vs "PR-202"
+    if (matNorm.startsWith(labNorm)) {
+       const remainder = matNorm.substring(labNorm.length);
+       if (remainder.startsWith('(') || remainder.startsWith('CON') || remainder.startsWith('CRUCETA')) {
+          return true;
+       }
+    }
+    
+    return false;
+  };
+
   const manoObraConsolidada = useMemo(() => {
-    const map = new Map<string, { item: any; totalPrecio: number }>()
+    // Build a list of labor items grouped by structure, respecting partida quantities
+    const rows: { estructura: string; cantidadPartida: number; item: any; totalPrecio: number }[] = []
     partidas.forEach(partida => {
       if (!partida.estructura) return
-      const itemsDEst = manoObraData.filter(m => m.estructura === partida.estructura)
+      const cant = Number(partida.cantidad) || 1
+      
+      // Use smart matching to fetch associated labor
+      const itemsDEst = manoObraData.filter(m => matchStructureLabor(partida.estructura, m.estructura))
+      
       itemsDEst.forEach(mo => {
-        const key = `${mo.id}`
-        const existing = map.get(key) || { item: mo, totalPrecio: 0 }
-        existing.totalPrecio += (Number(partida.cantidad) || 1) * Number(mo.precio)
-        map.set(key, existing)
+        rows.push({
+          estructura: partida.estructura,
+          cantidadPartida: cant,
+          item: mo,
+          totalPrecio: cant * Number(mo.precio),
+        })
       })
     })
-    return Array.from(map.values()).sort((a, b) => a.item.categoria.localeCompare(b.item.categoria))
+    // Sort by structure name, then category
+    return rows.sort((a, b) => a.estructura.localeCompare(b.estructura) || a.item.categoria.localeCompare(b.item.categoria))
   }, [partidas, manoObraData])
 
   const totalManoObra = useMemo(() =>
@@ -231,9 +278,11 @@ export default function NuevoPresupuesto() {
     }))
 
     const manoObraParaPDF: ManoObraLinea[] = manoObraConsolidada.map(r => ({
+      estructura: r.estructura,
       categoria: r.item.categoria,
       descripcion: r.item.descripcion,
       unidad: r.item.unidad,
+      cantidad: r.cantidadPartida,
       precioUnitario: Number(r.item.precio) * overheadFactor,
       subtotal: r.totalPrecio * overheadFactor
     }))
@@ -292,6 +341,26 @@ export default function NuevoPresupuesto() {
       })
     },
     [estructuras]
+  )
+
+  const handleImportConfirm = useCallback(
+    (items: { estructura: string; cantidad: number; precio_unitario: number }[]) => {
+      setPartidas((prev) => {
+        const result = mergeConPartidas(prev, items)
+        const partes = [
+          result.nuevas > 0 ? `${result.nuevas} nueva${result.nuevas !== 1 ? 's' : ''}` : null,
+          result.sumadas > 0 ? `${result.sumadas} sumada${result.sumadas !== 1 ? 's' : ''}` : null,
+        ].filter(Boolean)
+        toast({
+          title: 'Plano importado',
+          description: partes.length > 0
+            ? `${partes.join(', ')} al presupuesto.`
+            : 'Sin cambios.',
+        })
+        return result.partidas
+      })
+    },
+    []
   )
 
   // Debug validation errors
@@ -594,9 +663,19 @@ export default function NuevoPresupuesto() {
                 </div>
               )}
             </div>
-            <button type="button" className={styles.btnAdd} onClick={addPartida}>
-              <Plus size={20} /> Añadir Estructura al Presupuesto
-            </button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', padding: '0 2rem 1.5rem' }}>
+              <button type="button" className={styles.btnAdd} onClick={addPartida} style={{ flex: 1 }}>
+                <Plus size={20} /> Añadir Estructura al Presupuesto
+              </button>
+              <button
+                type="button"
+                className={styles.btnAdd}
+                onClick={() => setImportarOpen(true)}
+                style={{ flex: 1 }}
+              >
+                <FileUp size={20} /> Importar desde Plano PDF
+              </button>
+            </div>
           </section>
         )}
 
@@ -663,38 +742,89 @@ export default function NuevoPresupuesto() {
                 <Wrench size={48} style={{ margin: '0 auto 1rem', opacity: 0.1 }} />
                 <p style={{ fontWeight: 600 }}>Configura estructuras para proyectar la mano de obra.</p>
               </div>
-            ) : (
-              <div className={styles.tableResponsive} style={{ padding: '1rem 2rem 2rem' }}>
-                <table className={styles.tableMat}>
-                  <thead>
-                    <tr>
-                      <th>Categoría</th>
-                      <th>Actividad</th>
-                      <th style={{ textAlign: 'center' }}>Unidad</th>
-                      <th style={{ textAlign: 'right' }}>Precio Unit.</th>
-                      <th style={{ textAlign: 'right' }}>Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {manoObraConsolidada.map((row, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{row.item.categoria}</td>
-                        <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>{row.item.descripcion}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--color-text-muted)' }}>{row.item.unidad}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatRD(Number(row.item.precio) * (1 + (Number(overhead) || 0) / 100))}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(row.totalPrecio * (1 + (Number(overhead) || 0) / 100))}</td>
+            ) : (() => {
+              // Group rows by estructura for visual separation
+              const grouped: Record<string, typeof manoObraConsolidada> = {}
+              manoObraConsolidada.forEach(row => {
+                if (!grouped[row.estructura]) grouped[row.estructura] = []
+                grouped[row.estructura].push(row)
+              })
+              const estructuraNames = Object.keys(grouped)
+
+              return (
+                <div className={styles.tableResponsive} style={{ padding: '1rem 2rem 2rem' }}>
+                  <table className={styles.tableMat}>
+                    <thead>
+                      <tr>
+                        <th>Categoría</th>
+                        <th>Actividad</th>
+                        <th style={{ textAlign: 'center' }}>Unidad</th>
+                        <th style={{ textAlign: 'center' }}>Cant.</th>
+                        <th style={{ textAlign: 'right' }}>Precio Unit.</th>
+                        <th style={{ textAlign: 'right' }}>Subtotal</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800, padding: '1rem 0.75rem', fontSize: '0.9rem', borderTop: '2px solid var(--color-border)', color: 'var(--color-text-muted)' }}>TOTAL MANO DE OBRA</td>
-                      <td style={{ textAlign: 'right', fontWeight: 900, fontSize: '1rem', color: 'var(--color-primary)', borderTop: '2px solid var(--color-border)', padding: '1rem 0.75rem' }}>{formatRD(totalManoObra * (1 + (Number(overhead) || 0) / 100))}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {estructuraNames.map(estName => {
+                        const items = grouped[estName]
+                        const subtotalEstructura = items.reduce((a, r) => a + r.totalPrecio, 0)
+                        return (
+                          <React.Fragment key={estName}>
+                            {/* Structure header row */}
+                            <tr style={{
+                              background: 'linear-gradient(90deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%)',
+                            }}>
+                              <td colSpan={5} style={{
+                                fontWeight: 900,
+                                fontSize: '0.82rem',
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: 'var(--color-primary)',
+                                padding: '0.7rem 0.75rem',
+                                borderBottom: '1px solid rgba(99,102,241,0.2)',
+                              }}>
+                                <Layers size={14} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.7 }} />
+                                {estName}
+                                <span style={{ fontWeight: 500, fontSize: '0.75rem', marginLeft: 8, color: 'var(--color-text-muted)', textTransform: 'none', letterSpacing: 0 }}>
+                                  ({items.length} {items.length === 1 ? 'actividad' : 'actividades'} · ×{items[0]?.cantidadPartida})
+                                </span>
+                              </td>
+                              <td style={{
+                                textAlign: 'right',
+                                fontWeight: 900,
+                                fontSize: '0.85rem',
+                                color: 'var(--color-primary)',
+                                padding: '0.7rem 0.75rem',
+                                borderBottom: '1px solid rgba(99,102,241,0.2)',
+                              }}>
+                                {formatRD(subtotalEstructura * (1 + (Number(overhead) || 0) / 100))}
+                              </td>
+                            </tr>
+                            {/* Labor items for this structure */}
+                            {items.map((row, idx) => (
+                              <tr key={`${estName}-${idx}`}>
+                                <td style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em', paddingLeft: '1.5rem' }}>{row.item.categoria}</td>
+                                <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>{row.item.descripcion}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--color-text-muted)' }}>{row.item.unidad}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 900 }}>{row.cantidadPartida}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatRD(Number(row.item.precio) * (1 + (Number(overhead) || 0) / 100))}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(row.totalPrecio * (1 + (Number(overhead) || 0) / 100))}</td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'right', fontWeight: 800, padding: '1rem 0.75rem', fontSize: '0.9rem', borderTop: '2px solid var(--color-border)', color: 'var(--color-text-muted)' }}>TOTAL MANO DE OBRA</td>
+                        <td style={{ textAlign: 'right', fontWeight: 900, fontSize: '1rem', color: 'var(--color-primary)', borderTop: '2px solid var(--color-border)', padding: '1rem 0.75rem' }}>{formatRD(totalManoObra * (1 + (Number(overhead) || 0) / 100))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )
+            })()}
           </section>
         )}
 
@@ -738,6 +868,14 @@ export default function NuevoPresupuesto() {
           </Button>
         </div>
       </form>
+
+      <ImportarPlanoModal
+        open={importarOpen}
+        onClose={() => setImportarOpen(false)}
+        proyectoId={id ?? null}
+        catalogo={estructuras}
+        onConfirm={handleImportConfirm}
+      />
     </div>
   )
 }

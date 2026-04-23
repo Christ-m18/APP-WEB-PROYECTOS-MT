@@ -222,7 +222,15 @@ export async function uploadAvatar(file: File): Promise<string> {
   if (!user) throw new Error('No authenticated user')
 
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${user.id}/avatar.${ext}`
+  const timestamp = Date.now()
+  const path = `${user.id}/avatar-${timestamp}.${ext}`
+
+  // Limpiar avatares anteriores para no acumular basura y evitar caché del CDN
+  const { data: list } = await supabase.storage.from('avatars').list(user.id)
+  if (list && list.length > 0) {
+    const filesToRemove = list.map(f => `${user.id}/${f.name}`)
+    await supabase.storage.from('avatars').remove(filesToRemove)
+  }
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
@@ -231,6 +239,5 @@ export async function uploadAvatar(file: File): Promise<string> {
   if (uploadError) throw uploadError
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-  // Añadimos timestamp para forzar recarga de la imagen en el navegador
-  return `${data.publicUrl}?t=${Date.now()}`
+  return data.publicUrl
 }

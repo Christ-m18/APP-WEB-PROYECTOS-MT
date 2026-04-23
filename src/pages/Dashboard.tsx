@@ -11,7 +11,6 @@ import {
   CheckCircle2, 
   ArrowRight, 
   FileSpreadsheet,
-  Zap,
   Activity,
   History,
   Users
@@ -159,7 +158,7 @@ export default function Dashboard() {
               onClick={() => void navigate(`/app/presupuesto/${p.id}`)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyCenter: 'center', color: 'var(--color-primary)' }}>
+                <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
                    <Activity size={20} style={{ margin: '0 auto' }} />
                 </div>
                 <div>

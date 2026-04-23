@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePerfil } from '@/hooks/usePerfil'
 import { supabase } from '@/lib/supabase'
+import { queryClient } from '@/lib/queryClient'
 import { Menu, Cpu, User, UserCircle, Camera, LogOut, ChevronDown, Settings } from 'lucide-react'
 import styles from './Header.module.css'
 
@@ -53,6 +54,7 @@ export default function Header({ toggleMobileMenu }: HeaderProps) {
 
   const handleLogout = async () => {
     setDropdownOpen(false)
+    queryClient.clear()
     await supabase.auth.signOut()
     void navigate('/')
   }
