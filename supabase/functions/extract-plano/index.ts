@@ -1,7 +1,6 @@
 // Supabase Edge Function: extract-plano
-// Recibe un PDF en base64 y devuelve las estructuras MT detectadas por Claude Vision.
-// Deploy: `supabase functions deploy extract-plano`
-// Secret requerido: `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`
+// Recibe un PDF en base64 y devuelve las estructuras MT detectadas por Gemini Vision.
+// Secret requerido en Supabase: GEMINI_API_KEY
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.0'
@@ -12,37 +11,115 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const MODEL = 'claude-haiku-4-5-20251001'
-const MAX_TOKENS = 8192
-const ANTHROPIC_VERSION = '2023-06-01'
+const MODEL = 'gemini-2.5-flash'
+const MAX_TOKENS = 16384
 
-const SYSTEM_PROMPT = `Eres un asistente experto en planos eléctricos de media tensión (MT) según la regulación SIE de República Dominicana.
+const SYSTEM_PROMPT = `Eres un extractor experto en planos eléctricos de media tensión (MT) y baja tensión (BT) de proyectos EDE/SIE de República Dominicana. Tu tarea es leer el plano PDF adjunto y devolver un inventario JSON con TODAS las estructuras y accesorios que se proponen/instalan, con su cantidad.
 
-Tu única tarea es extraer TODAS las estructuras MT descritas en el plano PDF adjunto. Las estructuras pueden aparecer en tres formatos dentro del mismo plano (a veces varios simultáneamente):
+=== FAMILIAS DE CÓDIGOS ESPERADOS ===
+Estos son los prefijos típicos del catálogo SIE. Extrae TODO código que coincida con estos patrones:
 
-1. **Etiquetas junto a símbolos** — cada poste o estructura rotulada con su código (ej: "MT-301", "MT-301 (55-5)", "PR-101", "HAV-300-9", "ET-1").
-2. **Tablas resumen** — tabla con columnas tipo "Estructura | Cantidad" que totaliza las estructuras del plano.
-3. **Leyendas** — sección donde se declaran los símbolos usados, a veces con conteos.
+POSTES (siempre cuentan como estructura):
+- HAV-XXX-NN  (poste hormigón armado vertical, ej: HAV-300-9, HAV-500-10, HAV-500-12, HAV-800-10)
+- HPV-XXX-NN  (poste hormigón pretensado vertical, ej: HPV-500-10, HPV-500-12, HPV-800-12)
+- PO-XXX       (ej: PO-110)
 
-REGLAS ESTRICTAS:
-- Si la misma estructura aparece en más de una fuente (ej: 5 etiquetas visibles Y en tabla resumen "5"), cuéntala UNA sola vez. Prefiere el valor de la tabla/leyenda sobre el conteo de etiquetas cuando ambos existen.
-- Si solo hay etiquetas (sin tabla resumen), cuenta cada ocurrencia visible.
-- Conserva los códigos EXACTAMENTE como aparecen, incluyendo paréntesis y sufijos (ej: "MT-301 (55-5)", no "MT-301").
-- No inventes ni infiere códigos no visibles. Si hay una etiqueta borrosa o ilegible, reporta lo que ves con confianza baja.
-- Ignora anotaciones que no sean códigos de estructura MT (cotas, nombres de calles, notas generales, flechas de norte).
-- Nivel de confianza:
-  * 0.95–1.0: código legible y verificable por múltiples fuentes (etiqueta + tabla).
-  * 0.7–0.94: código legible pero una sola fuente, o ligeramente impreciso.
-  * <0.7: ambigüedad visual o texto parcialmente ilegible.
+ARMADOS MT (montajes de media tensión):
+- MT-NNN       (ej: MT-101, MT-105, MT-301, MT-305, MT-307)
+- MTA-NNN      (ej: MTA-101, MTA-102, MTA-103, MTA-105, MTA-303, MTA-305)
+- CV1-MT, CV2-MT, CV3-MT, CV4-MT  (cruces/crucetas de media tensión)
+- CE1-MT, CE2-MT, CE3-MT
+- CDA-MT
+- EC-MT, EA-MT
+- SO1-MT, SO2-MT, SP1-MT, SP2-MT
+- F1-MT, F2-MT, F3-MT, F4-MT, F5-MT, F6-MT (cada uno cuenta por separado)
+- FV-MT
+- SS1, SS2
+- PR-101, PR-102, PR-103, PR-202, PR-203  (pararrayos / protecciones)
+- PT-101, PT-102                           (puesta a tierra)
+- TR-xxx, TRA-xxx, TRA-104, TRA-105, TRA-106  (transformadores tipo poste)
 
-Responde SIEMPRE y ÚNICAMENTE con JSON válido con este esquema EXACTO, sin markdown, sin texto explicativo:
+ARMADOS BT (baja tensión):
+- BT-NNN       (ej: BT-101, BT-103, BT-104)
+- F1-BT, F2-BT, F3-BT, F4-BT, F5-BT, F6-BT
+- HA-100B, HA-101, HA-102, HA-104, HA-105, HA-106, HA 100B
+
+OTROS:
+- AP-103  (acometida)
+- HAV-xxx con sufijos como (RET), (REUB), (ENCOF.), (ABIERTO), (E), (P) — cuenta siempre, conserva el código base (ej: "MT-303" si se ve "MTA-303(ABIERTO)")
+
+=== DÓNDE BUSCAR EN EL PLANO ===
+
+FUENTE "tabla" (PRIORIDAD MÁXIMA):
+Busca una tabla titulada "TABLA DE ESTRUCTURAS PROPUESTAS", "LISTA DE ESTRUCTURAS", "BALANCE DE CARGA", "DESPIECE", "LISTADO", etc. Típicamente con columnas como "No. | No. de Poste | Tipo de Poste | Contenido" o "Estructura | Cantidad".
+- Si hay tabla, ITERA FILA POR FILA. Por cada fila:
+  * El "Tipo de Poste" (ej "HAV-500-10") es 1 item codigo="HAV-500-10" cantidad=1
+  * Cada código listado en "Contenido" también es 1 item (ej la fila con "MT-307, BT-104, HA-100B, PR-101" genera 4 items, cantidad=1 cada uno)
+  * Si en el contenido hay prefijo numérico (ej "2HA 100B" o "2 MT-305" o "18 F3-MT" o "4 F3-MT"), ese número ES la cantidad de ese código.
+- Suma todas las apariciones del mismo código a lo largo de la tabla completa.
+
+FUENTE "etiqueta":
+Cajas de texto junto a cada símbolo de poste (rotuladas PE1, PE2, PP1, PP2, etc.). Cada caja lista los códigos que lleva ese poste.
+Ejemplo caja PE1:
+  HAV-500-12
+  CV4-MT(8')
+  4 F3-MT
+  2 EA-MT
+  EC-MT
+  F6-BT
+  HA-106
+  AP-103
+→ genera items: HAV-500-12 ×1, CV4-MT ×1, F3-MT ×4, EA-MT ×2, EC-MT ×1, F6-BT ×1, HA-106 ×1, AP-103 ×1
+
+FUENTE "leyenda":
+Sección con símbolos y descripciones (ej "LEYENDA ELÉCTRICA"). Úsala solo para interpretar símbolos, NO para contar.
+
+=== REGLAS DE CONTEO ===
+
+1. DEDUPLICA FUENTES: si el mismo inventario aparece tanto en cajas por poste COMO en la "TABLA DE ESTRUCTURAS PROPUESTAS", extrae SOLO desde la tabla (es la más confiable). No sumes las dos fuentes. Si solo hay cajas, usa las cajas. Si solo hay tabla, usa la tabla.
+2. AGRUPA POR CÓDIGO NORMALIZADO: al final el JSON debe tener un item por código único, con cantidad = suma total en todo el plano.
+3. Prefijos numéricos = cantidad de ese código (ej "2HA 100B" → HA-100B cantidad=2; "18 F3-MT" → F3-MT cantidad=18).
+4. Paréntesis con sufijos tipo (E), (P), (REUB), (RET), (ABIERTO), (ENCOF.), (8'): descarta ese sufijo del código (guarda solo el código base; "MTA-303(ABIERTO)" → "MTA-303").
+5. IGNORA códigos de cables/conductores (ej "3AAAC#2/0", "TPX#2/0", "URD CU #1/0"), mediciones (ej "46.32Mts"), KVA individuales, coordenadas GPS, nombres de calles, CT's y PT's, coordenadas, sellos.
+6. Cuenta TODOS los postes propuestos con su código de poste (HAV-500-10, HPV-500-12, etc.), incluso si aparecen 20+ veces.
+7. Si la cantidad de un item llegaría a ser 0 o negativa, OMÍTELO.
+
+=== EJEMPLOS ===
+
+Ejemplo 1 (plano con tabla de estructuras de 59 postes tipo residencial):
+Si la tabla tiene 59 filas y cuentas:
+- Tipo de poste "HAV-500-10" aparece 15 veces, "HAV-500-12" 20 veces, "HAV-300-9" 24 veces
+- En la columna Contenido sumas: MT-307 aparece 2 veces, BT-104 aparece 18 veces, HA-100B aparece 10 veces, PR-101 aparece 30 veces, etc.
+Entonces:
+{"items": [
+  {"codigo":"HAV-500-10","cantidad":15,"fuente":"tabla","pagina":4,"confianza":0.95},
+  {"codigo":"HAV-500-12","cantidad":20,"fuente":"tabla","pagina":4,"confianza":0.95},
+  {"codigo":"HAV-300-9","cantidad":24,"fuente":"tabla","pagina":4,"confianza":0.95},
+  {"codigo":"MT-307","cantidad":2,"fuente":"tabla","pagina":4,"confianza":0.9},
+  {"codigo":"BT-104","cantidad":18,"fuente":"tabla","pagina":4,"confianza":0.9},
+  ...
+]}
+
+Ejemplo 2 (plano de diagrama unifilar con cajas por poste PE1..PE7, sin tabla):
+Recorre cada caja y suma. Si PE1 tiene "HAV-500-12, CV4-MT(8'), 4 F3-MT, 2 EA-MT, EC-MT, F6-BT, HA-106, AP-103" y otro poste tiene "HAV-500-12, MTA-305":
+{"items": [
+  {"codigo":"HAV-500-12","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"CV4-MT","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.85},
+  {"codigo":"F3-MT","cantidad":4,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  ...
+]}
+
+=== SALIDA ===
+Responde ÚNICAMENTE con JSON válido (sin markdown, sin texto adicional):
 {
   "items": [
     { "codigo": string, "cantidad": number, "fuente": "etiqueta"|"tabla"|"leyenda"|"otro", "pagina": number, "confianza": number }
   ]
-}`
+}
 
-const USER_PROMPT = `Analiza este plano PDF y extrae todas las estructuras MT según las reglas del sistema. Responde solo con el objeto JSON.`
+Si el plano no tiene NINGÚN código reconocible, devuelve {"items": []}. Pero antes de rendirte, revisa de nuevo las tablas, cajas por poste, y diagramas unifilares — los códigos SIE siempre están presentes en planos eléctricos de RD.`
+
+const USER_PROMPT = `Extrae el inventario de estructuras de este plano PDF. Analiza TODAS las páginas. Recorre las tablas fila por fila, las cajas junto a cada poste uno por uno, y suma las apariciones por código. Devuelve solo el objeto JSON con items.`
 
 interface RequestBody {
   archivoBase64: string
@@ -59,12 +136,8 @@ interface ItemExtraido {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
-  if (req.method !== 'POST') {
-    return json({ error: 'method not allowed' }, 405)
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
+  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
   const t0 = Date.now()
   let auditBase: Record<string, unknown> = {}
@@ -78,10 +151,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     )
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser()
+    const { data: { user }, error: authErr } = await supabase.auth.getUser()
     if (authErr || !user) return json({ error: 'unauthorized' }, 401)
 
     const body = (await req.json()) as RequestBody
@@ -92,8 +162,8 @@ serve(async (req) => {
       return json({ error: 'nombreArchivo requerido' }, 400)
     }
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) return json({ error: 'server_misconfigured' }, 500)
+    const apiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!apiKey) return json({ error: 'server_misconfigured_missing_GEMINI_API_KEY' }, 500)
 
     const archivoBytes = Math.ceil(body.archivoBase64.length * 0.75)
     auditBase = {
@@ -104,67 +174,60 @@ serve(async (req) => {
       modelo: MODEL,
     }
 
-    const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: body.archivoBase64,
-                },
-              },
-              { type: 'text', text: USER_PROMPT },
-            ],
+    const geminiResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { inline_data: { mime_type: 'application/pdf', data: body.archivoBase64 } },
+                { text: USER_PROMPT },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: MAX_TOKENS,
+            responseMimeType: 'application/json',
           },
-        ],
-      }),
-    })
+        }),
+      }
+    )
 
-    if (!anthropicResp.ok) {
-      const errText = await anthropicResp.text()
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text()
       await logAudit(supabase, {
         ...auditBase,
-        error: `anthropic_${anthropicResp.status}: ${errText.slice(0, 500)}`,
+        error: `gemini_${geminiResp.status}: ${errText.slice(0, 500)}`,
         duracion_ms: Date.now() - t0,
       })
-      return json({ error: 'anthropic_api_error', status: anthropicResp.status }, 502)
+      return json({ error: 'gemini_api_error', status: geminiResp.status, detail: errText.slice(0, 500) }, 502)
     }
 
-    const data = await anthropicResp.json()
-    const textBlock = (data.content ?? []).find(
-      (b: { type: string }) => b.type === 'text'
-    ) as { type: string; text: string } | undefined
-    if (!textBlock) {
+    const data = await geminiResp.json()
+    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) {
       await logAudit(supabase, {
         ...auditBase,
-        error: 'no_text_block_in_response',
+        error: `no_text_in_response: ${JSON.stringify(data).slice(0, 300)}`,
         duracion_ms: Date.now() - t0,
       })
       return json({ error: 'malformed_response' }, 502)
     }
 
-    const parsed = parseJsonResponse(textBlock.text)
+    const parsed = parseJsonResponse(text)
     const items = sanitizeItems(parsed?.items)
 
     await logAudit(supabase, {
       ...auditBase,
       items_extraidos: items,
-      tokens_input: data.usage?.input_tokens ?? null,
-      tokens_output: data.usage?.output_tokens ?? null,
+      tokens_input: data.usageMetadata?.promptTokenCount ?? null,
+      tokens_output: data.usageMetadata?.candidatesTokenCount ?? null,
       duracion_ms: Date.now() - t0,
     })
 
@@ -198,9 +261,7 @@ function parseJsonResponse(text: string): { items?: unknown[] } | null {
     try {
       const out = attempt()
       if (out) return out
-    } catch {
-      // siguiente estrategia
-    }
+    } catch { /* next */ }
   }
   return null
 }
@@ -235,7 +296,5 @@ async function logAudit(
 ): Promise<void> {
   try {
     await supabase.from('imports_planos').insert(row)
-  } catch {
-    // audit failures should not break the response
-  }
+  } catch { /* audit failures don't break response */ }
 }

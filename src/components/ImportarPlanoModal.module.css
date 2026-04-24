@@ -1,0 +1,208 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 56rem;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.closeBtn:hover { color: #475569; background: #f1f5f9; }
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.footerInfo { font-size: 0.875rem; color: #475569; }
+.footerBtns { display: flex; gap: 0.5rem; }
+
+/* ───── Upload step ───── */
+.dropZone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 3rem;
+  text-align: center;
+  transition: border-color 150ms, background-color 150ms;
+}
+.dropZoneActive {
+  border-color: var(--color-primary, #4f46e5);
+  background: #eef2ff;
+}
+.dropIcon { margin: 0 auto 1rem; color: #94a3b8; }
+.dropTitle { color: #334155; margin-bottom: 0.5rem; font-weight: 500; }
+.dropSub { font-size: 0.875rem; color: #64748b; margin-bottom: 1rem; }
+.dropPdfHint { font-size: 0.75rem; color: #94a3b8; margin-top: 1rem; }
+
+.fileBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-primary, #4f46e5);
+  color: white;
+  padding: 0.625rem 1.25rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 150ms;
+}
+.fileBtn:hover { background: #4338ca; }
+.hiddenInput { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* ───── Processing / Empty ───── */
+.centerBlock { text-align: center; padding: 4rem 1rem; }
+.spinIcon { margin: 0 auto 1rem; color: var(--color-primary, #4f46e5); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.stepTitle { color: #0f172a; font-weight: 600; margin-bottom: 0.25rem; }
+.stepSub { font-size: 0.875rem; color: #64748b; margin: 0; }
+.stepHint { font-size: 0.75rem; color: #94a3b8; margin-top: 1rem; max-width: 28rem; margin-left: auto; margin-right: auto; }
+
+/* ───── Review step ───── */
+.reviewSections { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.section { }
+.sectionHeader { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.75rem; }
+.sectionTitle { font-weight: 600; color: #1e293b; margin: 0; font-size: 0.95rem; }
+.sectionSub { font-size: 0.75rem; color: #64748b; margin: 0; }
+
+.matchedList { display: flex; flex-direction: column; gap: 0.25rem; }
+.matchedRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.matchedRow:hover { background: #f8fafc; }
+.matchedRow input[type="checkbox"] { width: 1rem; height: 1rem; }
+.matchedCode { flex: 1; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; }
+.matchedQty { font-size: 0.875rem; color: #475569; }
+.matchedPrice { font-size: 0.875rem; color: #64748b; width: 7rem; text-align: right; }
+
+.ambiguousList, .unmatchedList { display: flex; flex-direction: column; gap: 0.5rem; }
+.ambiguousItem { padding: 0.75rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; }
+.unmatchedItem { padding: 0.75rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; }
+.itemHeader { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.5rem; }
+.itemCode { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; font-weight: 600; }
+.itemMeta { font-size: 0.75rem; color: #64748b; }
+
+.select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.unmatchedMapped {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.unmatchedMappedCode { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; }
+.unmatchedRemove { background: none; border: none; color: #dc2626; font-size: 0.75rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+.unmatchedRemove:hover { text-decoration: underline; }
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.searchIcon { color: #94a3b8; flex-shrink: 0; }
+.searchInput { flex: 1; border: none; outline: none; font-size: 0.875rem; padding: 0.25rem 0; background: transparent; box-shadow: none; }
+.searchInput:focus { border: none; box-shadow: none; }
+
+.searchResults {
+  position: absolute;
+  z-index: 10;
+  margin-top: 0.25rem;
+  width: 100%;
+  max-height: 15rem;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  margin: 0.25rem 0 0 0;
+  padding: 0;
+}
+.searchResultRow {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.searchResultRow:hover { background: #f8fafc; }
+.searchResultCode { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; }
+.searchResultPrice { font-size: 0.75rem; color: #64748b; }
+
+.searchWrap { position: relative; }
+
+.emptyReviewMsg { text-align: center; color: #64748b; padding: 2rem 0; }

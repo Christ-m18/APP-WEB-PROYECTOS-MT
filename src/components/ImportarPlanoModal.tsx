@@ -22,6 +22,7 @@ import {
 } from '@/lib/planImporter'
 import { formatRD } from '@/utils/calculos'
 import type { EstructuraDB } from '@/types'
+import styles from './ImportarPlanoModal.module.css'
 
 const MAX_MB = 15
 const MAX_BYTES = MAX_MB * 1024 * 1024
@@ -170,29 +171,19 @@ export default function ImportarPlanoModal({
   if (!open) return null
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <FileText className="text-primary" size={22} />
-            <h2 className="text-lg font-semibold">Importar plano PDF</h2>
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <FileText size={22} style={{ color: 'var(--color-primary, #4f46e5)' }} />
+            <h2 className={styles.title}>Importar plano PDF</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600"
-            aria-label="Cerrar"
-          >
+          <button onClick={onClose} className={styles.closeBtn} aria-label="Cerrar">
             <X size={22} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={styles.body}>
           {step === 'upload' && <UploadStep onFileSelected={handleFile} onDrop={onDrop} />}
           {step === 'processing' && <ProcessingStep fileName={file?.name ?? ''} />}
           {step === 'empty' && (
@@ -233,12 +224,12 @@ export default function ImportarPlanoModal({
         </div>
 
         {step === 'review' && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
-            <div className="text-sm text-slate-600">
+          <div className={styles.footer}>
+            <div className={styles.footerInfo}>
               {confirmados.length} estructura{confirmados.length !== 1 ? 's' : ''} seleccionada
               {confirmados.length !== 1 ? 's' : ''}
             </div>
-            <div className="flex gap-2">
+            <div className={styles.footerBtns}>
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
@@ -270,9 +261,7 @@ function UploadStep({
   const [dragOver, setDragOver] = useState(false)
   return (
     <div
-      className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-        dragOver ? 'border-primary bg-blue-50' : 'border-slate-300'
-      }`}
+      className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ''}`}
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -283,35 +272,33 @@ function UploadStep({
         onDrop(e)
       }}
     >
-      <Upload size={48} className="mx-auto mb-4 text-slate-400" />
-      <p className="text-slate-700 mb-2">Arrastra el plano PDF aquí</p>
-      <p className="text-sm text-slate-500 mb-4">o</p>
-      <label className="inline-block">
+      <Upload size={48} className={styles.dropIcon} />
+      <p className={styles.dropTitle}>Arrastra el plano PDF aquí</p>
+      <p className={styles.dropSub}>o</p>
+      <label className={styles.fileBtn}>
+        Seleccionar archivo
         <input
           type="file"
           accept="application/pdf"
-          className="hidden"
+          className={styles.hiddenInput}
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (f) onFileSelected(f)
           }}
         />
-        <span className="inline-flex items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-md cursor-pointer text-sm font-semibold">
-          Seleccionar archivo
-        </span>
       </label>
-      <p className="text-xs text-slate-400 mt-4">PDF, máximo {MAX_MB} MB</p>
+      <p className={styles.dropPdfHint}>PDF, máximo {MAX_MB} MB</p>
     </div>
   )
 }
 
 function ProcessingStep({ fileName }: { fileName: string }) {
   return (
-    <div className="text-center py-16">
-      <Loader2 size={48} className="mx-auto mb-4 text-primary animate-spin" />
-      <p className="text-slate-800 font-medium mb-1">Analizando plano</p>
-      <p className="text-sm text-slate-500">{fileName}</p>
-      <p className="text-xs text-slate-400 mt-4">
+    <div className={styles.centerBlock}>
+      <Loader2 size={48} className={styles.spinIcon} />
+      <p className={styles.stepTitle}>Analizando plano</p>
+      <p className={styles.stepSub}>{fileName}</p>
+      <p className={styles.stepHint}>
         Extrayendo estructuras con IA. Puede tomar 10-30 segundos.
       </p>
     </div>
@@ -320,16 +307,18 @@ function ProcessingStep({ fileName }: { fileName: string }) {
 
 function EmptyStep({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="text-center py-16">
-      <AlertTriangle size={48} className="mx-auto mb-4 text-amber-500" />
-      <p className="text-slate-800 font-medium mb-2">No se detectaron estructuras</p>
-      <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+    <div className={styles.centerBlock}>
+      <AlertTriangle size={48} style={{ margin: '0 auto 1rem', color: '#f59e0b' }} />
+      <p className={styles.stepTitle}>No se detectaron estructuras</p>
+      <p className={styles.stepHint}>
         Revisa que el plano contenga etiquetas legibles, tabla resumen o leyenda. Si el PDF es
         escaneado de baja calidad, prueba con una versión de mayor resolución.
       </p>
-      <Button variant="outline" onClick={onRetry}>
-        Probar otro plano
-      </Button>
+      <div style={{ marginTop: '1.5rem' }}>
+        <Button variant="outline" onClick={onRetry}>
+          Probar otro plano
+        </Button>
+      </div>
     </div>
   )
 }
@@ -358,28 +347,24 @@ function ReviewStep({
   const { matched, ambiguous, unmatched } = matchResult
 
   return (
-    <div className="space-y-6">
+    <div className={styles.reviewSections}>
       {matched.length > 0 && (
         <Section
-          icon={<CheckCircle2 size={18} className="text-green-600" />}
+          icon={<CheckCircle2 size={18} style={{ color: '#16a34a' }} />}
           title={`Reconocidas (${matched.length})`}
           subtitle="Coincidencia exacta con el catálogo"
         >
-          <div className="space-y-1">
+          <div className={styles.matchedList}>
             {matched.map((m) => (
-              <label
-                key={m.item.codigo}
-                className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer"
-              >
+              <label key={m.item.codigo} className={styles.matchedRow}>
                 <input
                   type="checkbox"
                   checked={matchedSelected.has(m.item.codigo)}
                   onChange={() => toggleMatched(m.item.codigo)}
-                  className="w-4 h-4"
                 />
-                <span className="flex-1 font-mono text-sm">{m.estructura.estructura}</span>
-                <span className="text-sm text-slate-600">×{m.item.cantidad}</span>
-                <span className="text-sm text-slate-500 w-28 text-right">
+                <span className={styles.matchedCode}>{m.estructura.estructura}</span>
+                <span className={styles.matchedQty}>×{m.item.cantidad}</span>
+                <span className={styles.matchedPrice}>
                   {formatRD(m.estructura.costo_materiales_rd)}
                 </span>
               </label>
@@ -390,24 +375,21 @@ function ReviewStep({
 
       {ambiguous.length > 0 && (
         <Section
-          icon={<AlertTriangle size={18} className="text-amber-600" />}
+          icon={<AlertTriangle size={18} style={{ color: '#d97706' }} />}
           title={`Ambiguas (${ambiguous.length})`}
           subtitle="Elige la estructura correcta o déjala sin mapear para omitirla"
         >
-          <div className="space-y-2">
+          <div className={styles.ambiguousList}>
             {ambiguous.map((a) => (
-              <div
-                key={a.item.codigo}
-                className="p-3 bg-amber-50 border border-amber-200 rounded"
-              >
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="font-mono text-sm font-semibold">{a.item.codigo}</span>
-                  <span className="text-xs text-slate-500">extraído ×{a.item.cantidad}</span>
+              <div key={a.item.codigo} className={styles.ambiguousItem}>
+                <div className={styles.itemHeader}>
+                  <span className={styles.itemCode}>{a.item.codigo}</span>
+                  <span className={styles.itemMeta}>extraído ×{a.item.cantidad}</span>
                 </div>
                 <select
                   value={ambiguousChoices.get(a.item.codigo) ?? ''}
                   onChange={(e) => setAmbiguous(a.item.codigo, e.target.value)}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                  className={styles.select}
                 >
                   <option value="">— no importar —</option>
                   {a.candidatos.map((c) => (
@@ -425,11 +407,11 @@ function ReviewStep({
 
       {unmatched.length > 0 && (
         <Section
-          icon={<XCircle size={18} className="text-red-600" />}
+          icon={<XCircle size={18} style={{ color: '#dc2626' }} />}
           title={`No reconocidas (${unmatched.length})`}
           subtitle="Sin coincidencia en el catálogo. Mapea manualmente o déjala sin mapear para omitirla"
         >
-          <div className="space-y-2">
+          <div className={styles.unmatchedList}>
             {unmatched.map((u) => (
               <UnmatchedRow
                 key={u.codigo}
@@ -444,7 +426,7 @@ function ReviewStep({
       )}
 
       {matched.length === 0 && ambiguous.length === 0 && unmatched.length === 0 && (
-        <p className="text-center text-slate-500 py-8">No hay elementos para revisar.</p>
+        <p className={styles.emptyReviewMsg}>No hay elementos para revisar.</p>
       )}
     </div>
   )
@@ -462,12 +444,12 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div>
-      <div className="flex items-start gap-2 mb-3">
+    <div className={styles.section}>
+      <div className={styles.sectionHeader}>
         {icon}
         <div>
-          <h3 className="font-semibold text-slate-800">{title}</h3>
-          <p className="text-xs text-slate-500">{subtitle}</p>
+          <h3 className={styles.sectionTitle}>{title}</h3>
+          <p className={styles.sectionSub}>{subtitle}</p>
         </div>
       </div>
       {children}
@@ -487,7 +469,7 @@ function UnmatchedRow({
   catalogo: EstructuraDB[]
 }) {
   const [search, setSearch] = useState('')
-  const [open, setOpen] = useState(false)
+  const [openList, setOpenList] = useState(false)
   const filtered = search
     ? catalogo
         .filter((c) => c.estructura.toLowerCase().includes(search.toLowerCase()))
@@ -495,50 +477,49 @@ function UnmatchedRow({
     : []
 
   return (
-    <div className="p-3 bg-red-50 border border-red-200 rounded">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="font-mono text-sm font-semibold">{item.codigo}</span>
-        <span className="text-xs text-slate-500">extraído ×{item.cantidad}</span>
+    <div className={styles.unmatchedItem}>
+      <div className={styles.itemHeader}>
+        <span className={styles.itemCode}>{item.codigo}</span>
+        <span className={styles.itemMeta}>extraído ×{item.cantidad}</span>
       </div>
       {value ? (
-        <div className="flex items-center justify-between bg-white px-3 py-2 rounded border border-slate-300">
-          <span className="font-mono text-sm">{value}</span>
-          <button
-            className="text-xs text-red-600 hover:underline"
-            onClick={() => onChange('')}
-          >
+        <div className={styles.unmatchedMapped}>
+          <span className={styles.unmatchedMappedCode}>{value}</span>
+          <button className={styles.unmatchedRemove} onClick={() => onChange('')}>
             Quitar
           </button>
         </div>
       ) : (
-        <div className="relative">
-          <div className="flex items-center gap-2 bg-white px-2 py-1.5 border border-slate-300 rounded">
-            <Search size={14} className="text-slate-400" />
+        <div className={styles.searchWrap}>
+          <div className={styles.searchBox}>
+            <Search size={14} className={styles.searchIcon} />
             <input
-              className="flex-1 text-sm outline-none"
+              className={styles.searchInput}
               placeholder="Buscar estructura..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
-                setOpen(true)
+                setOpenList(true)
               }}
-              onFocus={() => setOpen(true)}
+              onFocus={() => setOpenList(true)}
             />
           </div>
-          {open && filtered.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-slate-200 rounded shadow-lg">
+          {openList && filtered.length > 0 && (
+            <ul className={styles.searchResults}>
               {filtered.map((c) => (
                 <li
                   key={c.estructura}
-                  className="px-3 py-2 hover:bg-slate-50 cursor-pointer flex justify-between"
+                  className={styles.searchResultRow}
                   onClick={() => {
                     onChange(c.estructura)
                     setSearch('')
-                    setOpen(false)
+                    setOpenList(false)
                   }}
                 >
-                  <span className="font-mono text-sm">{c.estructura}</span>
-                  <span className="text-xs text-slate-500">{formatRD(c.costo_materiales_rd)}</span>
+                  <span className={styles.searchResultCode}>{c.estructura}</span>
+                  <span className={styles.searchResultPrice}>
+                    {formatRD(c.costo_materiales_rd)}
+                  </span>
                 </li>
               ))}
             </ul>
