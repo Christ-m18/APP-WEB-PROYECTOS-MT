@@ -2,8 +2,13 @@
 // Recibe un PDF en base64 y devuelve las estructuras MT detectadas por Gemini Vision.
 // Secret requerido en Supabase: GEMINI_API_KEY
 
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.0'
+// @ts-ignore: Deno specifiers not recognized by standard TS
+import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+// @ts-ignore: Deno specifiers not recognized by standard TS
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+// @ts-ignore: Declaración global para evitar errores en editores sin la extensión de Deno
+declare const Deno: any;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,8 +16,17 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const MODEL = 'gemini-2.5-flash'
+// Cadena de fallback solo con modelos free-tier multimodales (PDF/vision).
+// Orden: mejor calidad primero, luego mayor cuota. Si uno da 503/429, cae al siguiente.
+const MODELOS = [
+  'gemini-2.5-flash',       // free: 5 RPM, 250K TPM, 20 RPD
+  'gemini-2.0-flash',       // free: estable, buen fallback
+  'gemini-2.5-flash-lite',  // free: 10 RPM, 250K TPM, 20 RPD (mayor RPM que 2.5-flash)
+  'gemini-2.0-flash-lite',  // free: último recurso, menor calidad
+]
 const MAX_TOKENS = 16384
+// Intentos por modelo. 2 intentos con pausa de 2.5s = total máx 4 modelos x 2 x ~3s ≈ 24s (dentro del timeout de Edge 60s).
+const PAUSAS_MS = [0, 2500]
 
 const SYSTEM_PROMPT = `Eres un extractor experto en planos eléctricos de media tensión (MT) y baja tensión (BT) de proyectos EDE/SIE de República Dominicana. Tu tarea es leer el plano PDF adjunto y devolver un inventario JSON con TODAS las estructuras y accesorios que se proponen/instalan, con su cantidad.
 
@@ -135,7 +149,7 @@ interface ItemExtraido {
   confianza: number
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
@@ -171,42 +185,48 @@ serve(async (req) => {
       proyecto_id: body.proyectoId ?? null,
       archivo_nombre: body.nombreArchivo,
       archivo_bytes: archivoBytes,
-      modelo: MODEL,
     }
 
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { inline_data: { mime_type: 'application/pdf', data: body.archivoBase64 } },
-                { text: USER_PROMPT },
-              ],
-            },
+    const requestBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inline_data: { mime_type: 'application/pdf', data: body.archivoBase64 } },
+            { text: USER_PROMPT },
           ],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: MAX_TOKENS,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    )
+        },
+      ],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: MAX_TOKENS,
+        responseMimeType: 'application/json',
+      },
+    })
 
-    if (!geminiResp.ok) {
-      const errText = await geminiResp.text()
+    const { response: geminiResp, modeloUsado, intentos } = await callGeminiConReintentos(
+      apiKey,
+      requestBody
+    )
+    auditBase.modelo = modeloUsado
+    auditBase.intentos = intentos
+
+    if (!geminiResp || !geminiResp.ok) {
+      const errText = geminiResp ? await geminiResp.text() : 'sin_respuesta'
+      const status = geminiResp?.status ?? 0
       await logAudit(supabase, {
         ...auditBase,
-        error: `gemini_${geminiResp.status}: ${errText.slice(0, 500)}`,
+        error: `gemini_${status}: ${errText.slice(0, 500)}`,
         duracion_ms: Date.now() - t0,
       })
-      return json({ error: 'gemini_api_error', status: geminiResp.status, detail: errText.slice(0, 500) }, 502)
+      const mensaje = status === 503 || status === 429
+        ? 'Los modelos de IA están sobrecargados. Intenta de nuevo en 1-2 minutos.'
+        : 'Error al invocar Gemini.'
+      return json(
+        { error: 'gemini_api_error', status, detail: errText.slice(0, 500), mensaje },
+        502
+      )
     }
 
     const data = await geminiResp.json()
@@ -237,6 +257,37 @@ serve(async (req) => {
     return json({ error: 'internal_error', detail: msg }, 500)
   }
 })
+
+async function callGeminiConReintentos(
+  apiKey: string,
+  requestBody: string
+): Promise<{ response: Response | null; modeloUsado: string; intentos: number }> {
+  let intentosTotales = 0
+  let ultimaResp: Response | null = null
+  for (const modelo of MODELOS) {
+    for (const pausa of PAUSAS_MS) {
+      if (pausa > 0) await new Promise((r) => setTimeout(r, pausa))
+      intentosTotales++
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: requestBody,
+          }
+        )
+        if (resp.ok) return { response: resp, modeloUsado: modelo, intentos: intentosTotales }
+        // 503/429 = reintentar mismo modelo. 5xx/otros → saltar al siguiente modelo
+        ultimaResp = resp
+        if (resp.status !== 503 && resp.status !== 429) break
+      } catch {
+        // red falló: reintentar
+      }
+    }
+  }
+  return { response: ultimaResp, modeloUsado: MODELOS[MODELOS.length - 1]!, intentos: intentosTotales }
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

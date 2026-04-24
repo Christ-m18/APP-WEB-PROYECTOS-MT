@@ -35,7 +35,7 @@ export default function Proyectos() {
     try {
       await deleteMutation.mutateAsync(id)
       toast({ title: 'Proyecto eliminado con éxito' })
-    } catch (e) {
+    } catch {
       toast({ title: 'Error al eliminar', variant: 'destructive' })
     }
   }

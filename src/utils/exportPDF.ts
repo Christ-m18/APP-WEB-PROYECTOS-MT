@@ -3,6 +3,11 @@ import autoTable from 'jspdf-autotable'
 import type { ExportPDFOptions, Proyecto, MaterialConsolidado, ManoObraLinea, EmpresaConfig } from '@/types'
 import { formatRD, resumenPresupuesto } from '@/utils/calculos'
 
+// jspdf-autotable attaches lastAutoTable to the jsPDF instance; typed here to avoid `any`.
+interface JsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number }
+}
+
 // ─── Paleta unificada ─────────────────────────────────────────────────────────
 const C = {
   primary:   [37, 99, 235]   as [number, number, number], // Blue-600
@@ -227,12 +232,12 @@ function agregarTablaPartidas(
     },
   })
 
-  let finalY = (doc as any).lastAutoTable.finalY + 10
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 10
 
   // ── Bloque de resumen financiero ───────────────────────────────
   const boxW = 90
   const boxX = PAGE_W - MARGIN - boxW
-  let boxY = finalY
+  const boxY = finalY
   const lineH = 8
 
   const filas: { label: string; value: string; last?: boolean; green?: boolean }[] = [
@@ -320,7 +325,7 @@ function agregarTablaMateriales(doc: jsPDF, materiales: MaterialConsolidado[], s
     },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 6
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6
 
   // Total
   roundedRect(doc, MARGIN, finalY, PAGE_W - MARGIN * 2, 11, 2, C.primary)
@@ -352,7 +357,8 @@ function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: num
   })
 
   // Build table body with structure sub-headers
-  const body: any[][] = []
+  type CeldaPDF = string | number | { content: string; colSpan?: number; styles?: Record<string, unknown> }
+  const body: CeldaPDF[][] = []
   Object.entries(grouped).forEach(([estName, items]) => {
     const subtotalEst = items.reduce((a, m) => a + m.subtotal, 0)
     // Structure header row (merged across all columns visually via styling)
@@ -403,7 +409,7 @@ function agregarTablaManoObra(doc: jsPDF, manoObra: ManoObraLinea[], startY: num
     },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 6
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6
 
   // Total
   roundedRect(doc, MARGIN, finalY, PAGE_W - MARGIN * 2, 11, 2, C.primary)

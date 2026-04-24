@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchEstructuras, fetchMaterialesPorEstructura, fetchMaterialesParaMultiplesEstructuras, fetchTodaManoObra } from '@/lib/db'
+import { fetchEstructuras, fetchMaterialesPorEstructura, fetchMaterialesParaMultiplesEstructuras, fetchTodaManoObra, fetchManoObraPorEstructuras } from '@/lib/db'
 
 export const ESTRUCTURAS_KEY = ['estructuras'] as const
 
@@ -35,5 +35,15 @@ export function useTodaManoObra() {
     queryKey: ['toda-mano-obra'],
     queryFn: fetchTodaManoObra,
     staleTime: Infinity, // Mano de Obra pricing rarely changes
+  })
+}
+
+export function useManoObraPorEstructuras(estructuras: string[]) {
+  const sortedKey = [...new Set(estructuras)].sort().join(',')
+  return useQuery({
+    queryKey: ['mano-obra-estructuras', sortedKey],
+    queryFn: () => fetchManoObraPorEstructuras([...new Set(estructuras)]),
+    enabled: estructuras.length > 0,
+    staleTime: Infinity,
   })
 }

@@ -1,4 +1,4 @@
-import type { Partida, ResumenPresupuesto } from '@/types'
+import type { ManoObraRow, Partida, ResumenPresupuesto } from '@/types'
 
 export function totalPartida(cantidad: number, precioUnitario: number): number {
   return cantidad * precioUnitario
@@ -51,7 +51,7 @@ export function formatRD(valor: number | null | undefined): string {
 
 export function calcularTotalProyecto(
   partidas: Partida[],
-  todaManoObra: any[],
+  todaManoObra: ManoObraRow[],
   overheadPct: number,
   aplicarITBIS: boolean
 ): number {

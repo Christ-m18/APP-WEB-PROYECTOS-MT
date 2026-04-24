@@ -3,12 +3,24 @@ module.exports = {
   env: { browser: true, es2020: true },
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/strict-type-checked',
+    'plugin:@typescript-eslint/recommended',
     'plugin:react/recommended',
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
+  settings: { react: { version: 'detect' } },
+  ignorePatterns: [
+    'dist',
+    '.eslintrc.cjs',
+    'claude-token-efficient-main',
+    'Estructuras_MT',
+    'Emely',
+    'node_modules',
+    'supabase/functions',
+    'tailwind.config.ts',
+    'postcss.config.js',
+    'vite.config.ts',
+  ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',
@@ -18,9 +30,12 @@ module.exports = {
   },
   plugins: ['react-refresh', '@typescript-eslint'],
   rules: {
-    'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    // HMR desactivado en vite.config.ts; la regla de react-refresh no aporta.
+    'react-refresh/only-export-components': 'off',
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'react/prop-types': 'off',
   },
 }

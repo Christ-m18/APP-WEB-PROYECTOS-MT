@@ -87,6 +87,19 @@ export interface ManoObraLinea {
   subtotal: number
 }
 
+// Fila cruda de la tabla Supabase `estructuras_mano_obra`.
+export interface ManoObraRow {
+  id: number
+  estructura: string
+  categoria?: string | null
+  descripcion?: string | null
+  unidad?: string | null
+  precio: number
+  itbis?: number | null
+  total?: number | null
+  activo: boolean
+}
+
 export type EstadoPresupuesto = 'borrador' | 'enviado' | 'aprobado' | 'rechazado'
 
 export type TipoExportPDF = 'presupuesto' | 'materiales' | 'mano_obra' | 'completo'

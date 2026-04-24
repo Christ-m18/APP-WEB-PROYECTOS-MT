@@ -5,6 +5,7 @@ import type {
   Perfil,
   EstructuraDB,
   UuccMaterialEstructura,
+  ManoObraRow,
 } from '@/types'
 
 // ─── Estructuras ──────────────────────────────────────────────────────────────
@@ -45,14 +46,28 @@ export async function fetchMaterialesParaMultiplesEstructuras(
   return (data ?? []) as unknown as UuccMaterialEstructura[]
 }
 
-export async function fetchTodaManoObra(): Promise<any[]> {
+export async function fetchTodaManoObra(): Promise<ManoObraRow[]> {
   const { data, error } = await supabase
     .from('estructuras_mano_obra')
     .select('*')
     .eq('activo', true)
 
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as ManoObraRow[]
+}
+
+export async function fetchManoObraPorEstructuras(
+  estructuras: string[]
+): Promise<ManoObraRow[]> {
+  if (estructuras.length === 0) return []
+  const { data, error } = await supabase
+    .from('estructuras_mano_obra')
+    .select('*')
+    .in('estructura', estructuras)
+    .eq('activo', true)
+
+  if (error) throw error
+  return (data ?? []) as ManoObraRow[]
 }
 
 // ─── Proyectos ────────────────────────────────────────────────────────────────
@@ -82,6 +97,25 @@ export async function fetchProyecto(id: string): Promise<Proyecto> {
   return data as Proyecto
 }
 
+// Columna `total` de partidas es generada en Postgres; hay que excluirla del insert.
+type PartidaInsertable = Pick<Partida, 'estructura' | 'cantidad' | 'precio_unitario'> &
+  Partial<Pick<Partida, 'orden' | 'detalles'>>
+
+function prepararPartidaInsert(
+  p: PartidaInsertable,
+  proyecto_id: string,
+  index: number
+): Record<string, unknown> {
+  return {
+    proyecto_id,
+    estructura: p.estructura || '',
+    cantidad: Number(p.cantidad) || 0,
+    precio_unitario: Number(p.precio_unitario) || 0,
+    orden: p.orden ?? index,
+    detalles: p.detalles ?? null,
+  }
+}
+
 export async function createProyecto(
   proyecto: Omit<Proyecto, 'id' | 'creado_en'>,
   partidas: Omit<Partida, 'id' | 'proyecto_id'>[]
@@ -98,24 +132,8 @@ export async function createProyecto(
   if (proyError) throw proyError
 
   if (partidas.length > 0) {
-    // Normalizar la estructura para evitar errores 400 por columnas inconsistentes
-    const preparedPartidas = partidas.map((p, index) => {
-      const pAny = p as any
-      return {
-        proyecto_id: proy.id,
-        estructura: pAny.estructura || '',
-        cantidad: Number(pAny.cantidad) || 0,
-        precio_unitario: Number(pAny.precio_unitario) || 0,
-        // (total es generado en Supabase)
-        orden: pAny.orden || index,
-        detalles: pAny.detalles || null
-      }
-    })
-
-    const { error: partsError } = await supabase
-      .from('partidas')
-      .insert(preparedPartidas)
-
+    const preparedPartidas = partidas.map((p, i) => prepararPartidaInsert(p, proy.id as string, i))
+    const { error: partsError } = await supabase.from('partidas').insert(preparedPartidas)
     if (partsError) throw partsError
   }
 
@@ -143,24 +161,8 @@ export async function updateProyecto(
   if (deleteError) throw deleteError
 
   if (partidas.length > 0) {
-    // Normalizar la estructura para evitar errores 400 por columnas inconsistentes en el lote
-    const preparedPartidas = partidas.map((p, index) => {
-      const pAny = p as any
-      return {
-        proyecto_id: id,
-        estructura: pAny.estructura || '',
-        cantidad: Number(pAny.cantidad) || 0,
-        precio_unitario: Number(pAny.precio_unitario) || 0,
-        // (total es generado en Supabase)
-        orden: pAny.orden || index,
-        detalles: pAny.detalles || null
-      }
-    })
-
-    const { error: insertError } = await supabase
-      .from('partidas')
-      .insert(preparedPartidas)
-
+    const preparedPartidas = partidas.map((p, i) => prepararPartidaInsert(p, id, i))
+    const { error: insertError } = await supabase.from('partidas').insert(preparedPartidas)
     if (insertError) throw insertError
   }
 

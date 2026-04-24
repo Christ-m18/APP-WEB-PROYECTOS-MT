@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEstructuras, useMaterialesMultiples } from '@/hooks/useEstructuras'
+import { useEstructuras, useMaterialesMultiples, useManoObraPorEstructuras } from '@/hooks/useEstructuras'
 import { useProyecto, useCreateProyecto, useUpdateProyecto } from '@/hooks/useProyectos'
 import { usePerfil } from '@/hooks/usePerfil'
 import { proyectoSchema, type ProyectoFormData } from '@/lib/validations'
@@ -17,7 +17,7 @@ import { resumenPresupuesto, formatRD, totalPartida } from '@/utils/calculos'
 import { exportarPDF } from '@/utils/exportPDF'
 import { VOLTAJES } from '@/data/estructuras_sie'
 import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp } from 'lucide-react'
-import type { Partida, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig } from '@/types'
+import type { Partida, Proyecto, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig, ManoObraRow, Material } from '@/types'
 import styles from './NuevoPresupuesto.module.css'
 
 type TabKey = 'partidas' | 'materiales' | 'mano_obra'
@@ -101,7 +101,7 @@ export default function NuevoPresupuesto() {
         cliente: proyectoExistente.cliente || '',
         fecha: proyectoExistente.fecha || new Date().toISOString().split('T')[0],
         voltaje: proyectoExistente.voltaje || '',
-        estado: (proyectoExistente.estado as any) || 'borrador',
+        estado: (proyectoExistente.estado as ProyectoFormData['estado']) || 'borrador',
         overhead: proyectoExistente.overhead || 0,
         aplicar_itbis: proyectoExistente.aplicar_itbis || false,
       })
@@ -129,27 +129,7 @@ export default function NuevoPresupuesto() {
   const { data: todosLosMateriales = [], isLoading: loadingMats } = useMaterialesMultiples(uniqueEstructuras)
 
   // ─── Mano de Obra consolidada por estructura ────────────────────────────────
-  const [manoObraData, setManoObraData] = useState<any[]>([])
-  const [loadingMO, setLoadingMO] = useState(false)
-
-  useEffect(() => {
-    if (uniqueEstructuras.length === 0) {
-      setManoObraData([])
-      return
-    }
-    setLoadingMO(true)
-    import('@/lib/supabase').then(({ supabase }) => {
-      supabase
-        .from('estructuras_mano_obra')
-        .select('*')
-        .in('estructura', uniqueEstructuras)
-        .eq('activo', true)
-        .then(({ data }) => {
-          setManoObraData(data ?? [])
-          setLoadingMO(false)
-        })
-    })
-  }, [uniqueEstructuras])
+  const { data: manoObraData = [], isLoading: loadingMO } = useManoObraPorEstructuras(uniqueEstructuras)
 
   const matchStructureLabor = (matEstructura: string, laborEstructura: string) => {
     if (!matEstructura || !laborEstructura) return false;
@@ -189,7 +169,7 @@ export default function NuevoPresupuesto() {
 
   const manoObraConsolidada = useMemo(() => {
     // Build a list of labor items grouped by structure, respecting partida quantities
-    const rows: { estructura: string; cantidadPartida: number; item: any; totalPrecio: number }[] = []
+    const rows: { estructura: string; cantidadPartida: number; item: ManoObraRow; totalPrecio: number }[] = []
     partidas.forEach(partida => {
       if (!partida.estructura) return
       const cant = Number(partida.cantidad) || 1
@@ -207,7 +187,10 @@ export default function NuevoPresupuesto() {
       })
     })
     // Sort by structure name, then category
-    return rows.sort((a, b) => a.estructura.localeCompare(b.estructura) || a.item.categoria.localeCompare(b.item.categoria))
+    return rows.sort((a, b) =>
+      a.estructura.localeCompare(b.estructura) ||
+      (a.item.categoria ?? '').localeCompare(b.item.categoria ?? '')
+    )
   }, [partidas, manoObraData])
 
   const totalManoObra = useMemo(() =>
@@ -215,7 +198,7 @@ export default function NuevoPresupuesto() {
   , [manoObraConsolidada])
 
   const consolidado = useMemo(() => {
-    const map = new Map<string, { material: any; total: number; precioTotal: number }>()
+    const map = new Map<string, { material: Material; total: number; precioTotal: number }>()
 
     partidas.forEach(partida => {
       if (!partida.estructura) return
@@ -279,9 +262,9 @@ export default function NuevoPresupuesto() {
 
     const manoObraParaPDF: ManoObraLinea[] = manoObraConsolidada.map(r => ({
       estructura: r.estructura,
-      categoria: r.item.categoria,
-      descripcion: r.item.descripcion,
-      unidad: r.item.unidad,
+      categoria: r.item.categoria ?? '',
+      descripcion: r.item.descripcion ?? '',
+      unidad: r.item.unidad ?? '',
       cantidad: r.cantidadPartida,
       precioUnitario: Number(r.item.precio) * overheadFactor,
       subtotal: r.totalPrecio * overheadFactor
@@ -289,14 +272,14 @@ export default function NuevoPresupuesto() {
 
     try {
       await exportarPDF({
-        proyecto: proyectoParaPDF as any,
+        proyecto: proyectoParaPDF as unknown as Proyecto,
         tipo,
         materialesConsolidados: materialesParaPDF,
         manoObra: manoObraParaPDF,
         empresa: empresa.nombre ? empresa : undefined
       })
       toast({ title: 'PDF generado correctamente' })
-    } catch (error) {
+    } catch {
       toast({ title: 'Error al generar PDF', variant: 'destructive' })
     }
   }
@@ -371,7 +354,6 @@ export default function NuevoPresupuesto() {
   }, [errors])
 
   const onSubmit = async (data: ProyectoFormData) => {
-    console.log('Attempting to submit form...', { isEditing, id })
     const payload = { ...data, overhead: Number(data.overhead) || 0 }
     
     try {
@@ -394,7 +376,7 @@ export default function NuevoPresupuesto() {
     }
   }
 
-  const onInvalid = (errors: any) => {
+  const onInvalid = (errors: Record<string, unknown>) => {
     console.warn('Form Validation Failed:', errors)
     toast({
       title: 'Formulario Incompleto',

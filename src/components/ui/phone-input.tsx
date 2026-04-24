@@ -335,14 +335,14 @@ export function PhoneInput({
                   }}
                   onMouseEnter={e => {
                     if (selectedCountry.iso !== country.iso) {
-                      ;(e.currentTarget as HTMLButtonElement).style.background = darkTheme
+                      (e.currentTarget as HTMLButtonElement).style.background = darkTheme
                         ? 'rgba(255,255,255,0.05)'
                         : '#f8fafc'
                     }
                   }}
                   onMouseLeave={e => {
                     if (selectedCountry.iso !== country.iso) {
-                      ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                      (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
                     }
                   }}
                 >

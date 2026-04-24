@@ -75,7 +75,7 @@ export function codigoCanonico(codigo: string): string {
 //   "AP-103 REUB"                                      → "AP-103"
 export function extraerCodigoBase(nombre: string): string {
   // Normaliza conservando paréntesis (pueden contener el código)
-  let texto = nombre.trim().toUpperCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ')
+  const texto = nombre.trim().toUpperCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ')
 
   const patrones: RegExp[] = [
     // Postes hormigón: HAV-500-12, HPV-800-10, MCH-500-14
