@@ -208,27 +208,50 @@ export async function upsertPerfil(perfil: Partial<Perfil>): Promise<Perfil> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No authenticated user')
 
-  // Filtramos los campos permitidos y nos aseguramos de incluir el email
-  const safeData: PerfilUpsert = {
-    id: user.id,
-    nombre: perfil.nombre ?? '',
-    apellido: perfil.apellido ?? '',
-    email: perfil.email ?? user.email ?? '',
-    empresa: perfil.empresa ?? null,
-    telefono: perfil.telefono ?? null,
+  // Si la mutación trae nombre y apellido (flujo completo: registro o edición de
+  // datos del perfil) hacemos upsert. En cambio, para actualizaciones parciales
+  // como avatar_url, hacemos update para no pisar campos existentes ni romper
+  // los NOT NULL del Insert.
+  const isFullProfile = perfil.nombre !== undefined && perfil.apellido !== undefined
+
+  if (isFullProfile) {
+    const safeData: PerfilUpsert = {
+      id: user.id,
+      email: perfil.email ?? user.email ?? '',
+      nombre: perfil.nombre as string,
+      apellido: perfil.apellido as string,
+    }
+    if (perfil.empresa !== undefined) safeData.empresa = perfil.empresa
+    if (perfil.telefono !== undefined) safeData.telefono = perfil.telefono
+    if (perfil.avatar_url !== undefined) safeData.avatar_url = perfil.avatar_url
+
+    const { data, error } = await supabase
+      .from('perfiles')
+      .upsert(safeData)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Database Upsert Error:', error)
+      throw error
+    }
+    return data as Perfil
   }
-  if (perfil.avatar_url !== undefined) {
-    safeData.avatar_url = perfil.avatar_url
-  }
+
+  const partialData: Database['public']['Tables']['perfiles']['Update'] = {}
+  if (perfil.empresa !== undefined) partialData.empresa = perfil.empresa
+  if (perfil.telefono !== undefined) partialData.telefono = perfil.telefono
+  if (perfil.avatar_url !== undefined) partialData.avatar_url = perfil.avatar_url
 
   const { data, error } = await supabase
     .from('perfiles')
-    .upsert(safeData)
+    .update(partialData)
+    .eq('id', user.id)
     .select()
     .single()
 
   if (error) {
-    console.error('Database Upsert Error:', error)
+    console.error('Database Update Error:', error)
     throw error
   }
   return data as Perfil
