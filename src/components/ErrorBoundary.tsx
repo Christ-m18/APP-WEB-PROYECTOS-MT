@@ -1,4 +1,5 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+import { reportError } from '@/lib/sentry'
 
 interface Props {
   children: ReactNode
@@ -19,6 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[ErrorBoundary]', error, info.componentStack)
+    reportError(error, { componentStack: info.componentStack })
   }
 
   private reset = (): void => {

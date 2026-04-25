@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { Database } from '@/types/supabase'
 import type {
   Proyecto,
   Partida,
@@ -7,6 +8,11 @@ import type {
   UuccMaterialEstructura,
   ManoObraRow,
 } from '@/types'
+
+type PartidaInsert = Database['public']['Tables']['partidas']['Insert']
+type ProyectoInsert = Database['public']['Tables']['proyectos']['Insert']
+type ProyectoUpdate = Database['public']['Tables']['proyectos']['Update']
+type PerfilUpsert = Database['public']['Tables']['perfiles']['Insert']
 
 // ─── Estructuras ──────────────────────────────────────────────────────────────
 
@@ -17,7 +23,11 @@ export async function fetchEstructuras(): Promise<EstructuraDB[]> {
     .order('estructura')
 
   if (error) throw error
-  return data ?? []
+  // La vista permite nulls; filtramos para devolver EstructuraDB estricto.
+  return (data ?? [])
+    .filter((r): r is { estructura: string; costo_materiales_rd: number } =>
+      r.estructura !== null && r.costo_materiales_rd !== null
+    )
 }
 
 export async function fetchMaterialesPorEstructura(
@@ -105,7 +115,7 @@ function prepararPartidaInsert(
   p: PartidaInsertable,
   proyecto_id: string,
   index: number
-): Record<string, unknown> {
+): PartidaInsert {
   return {
     proyecto_id,
     estructura: p.estructura || '',
@@ -123,9 +133,10 @@ export async function createProyecto(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No authenticated user')
 
+  const insertPayload: ProyectoInsert = { ...proyecto, usuario_id: user.id }
   const { data: proy, error: proyError } = await supabase
     .from('proyectos')
-    .insert({ ...proyecto, usuario_id: user.id })
+    .insert(insertPayload)
     .select()
     .single()
 
@@ -145,9 +156,12 @@ export async function updateProyecto(
   proyecto: Partial<Omit<Proyecto, 'id' | 'creado_en'>>,
   partidas: Omit<Partida, 'id' | 'proyecto_id'>[]
 ): Promise<Proyecto> {
+  // `partidas` está en Proyecto app-level pero no en la tabla; lo removemos.
+  const { partidas: _ignored, ...proyectoSinPartidas } = proyecto as Partial<Proyecto>
+  const updatePayload: ProyectoUpdate = proyectoSinPartidas
   const { error: proyError } = await supabase
     .from('proyectos')
-    .update(proyecto)
+    .update(updatePayload)
     .eq('id', id)
 
   if (proyError) throw proyError
@@ -195,20 +209,21 @@ export async function upsertPerfil(perfil: Partial<Perfil>): Promise<Perfil> {
   if (!user) throw new Error('No authenticated user')
 
   // Filtramos los campos permitidos y nos aseguramos de incluir el email
-  const safeData: Record<string, unknown> = {
-    nombre: perfil.nombre,
-    apellido: perfil.apellido,
-    empresa: perfil.empresa,
-    telefono: perfil.telefono,
-    email: perfil.email || user.email, // Fallback al email de la sesión
+  const safeData: PerfilUpsert = {
+    id: user.id,
+    nombre: perfil.nombre ?? '',
+    apellido: perfil.apellido ?? '',
+    email: perfil.email ?? user.email ?? '',
+    empresa: perfil.empresa ?? null,
+    telefono: perfil.telefono ?? null,
   }
   if (perfil.avatar_url !== undefined) {
     safeData.avatar_url = perfil.avatar_url
   }
-  
+
   const { data, error } = await supabase
     .from('perfiles')
-    .upsert({ ...safeData, id: user.id })
+    .upsert(safeData)
     .select()
     .single()
 
@@ -243,3 +258,15 @@ export async function uploadAvatar(file: File): Promise<string> {
   const { data } = supabase.storage.from('avatars').getPublicUrl(path)
   return data.publicUrl
 }
+
+export async function deleteAvatar(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No authenticated user')
+
+  const { data: list } = await supabase.storage.from('avatars').list(user.id)
+  if (list && list.length > 0) {
+    const filesToRemove = list.map(f => `${user.id}/${f.name}`)
+    await supabase.storage.from('avatars').remove(filesToRemove)
+  }
+}
+

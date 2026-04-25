@@ -4,14 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { usePerfil, useUpsertPerfil } from '@/hooks/usePerfil'
-import { uploadAvatar } from '@/lib/db'
+import { uploadAvatar, deleteAvatar } from '@/lib/db'
 import { perfilSchema, type PerfilFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PhoneInput, CountryFlag, parsePhoneValue, COUNTRIES, type Country } from '@/components/ui/phone-input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
-import { User, Shield, LogOut, Building, Mail, Activity, Check, Pencil, X, Save, Camera } from 'lucide-react'
+import { User, Shield, LogOut, Building, Mail, Activity, Check, Pencil, X, Save, Camera, Trash2 } from 'lucide-react'
 import styles from './Perfil.module.css'
 
 export default function Perfil() {
@@ -96,6 +96,24 @@ export default function Perfil() {
     }
   }
 
+  const handleDeleteAvatar = async () => {
+    if (!avatarUrl) return
+    if (!window.confirm('¿Seguro que deseas eliminar tu foto de perfil?')) return
+    setUploadingAvatar(true)
+    try {
+      await deleteAvatar()
+      // En la base de datos se guarda null si no hay avatar, upsertPerfil lo permite omitiendo pero aquí queremos explícitamente sobreescribirlo a null.
+      // UpsertPerfil usa upsert que puede lidiar con null.
+      await upsertMutation.mutateAsync({ avatar_url: null })
+      setAvatarUrl(null)
+      toast({ title: 'Foto de perfil eliminada' })
+    } catch (err) {
+      toast({ title: 'Error al eliminar foto', description: String(err), variant: 'destructive' })
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   const onSubmit = async (data: PerfilFormData) => {
     try {
       await upsertMutation.mutateAsync(data)
@@ -155,6 +173,17 @@ export default function Perfil() {
               {uploadingAvatar ? '...' : <Camera size={16} />}
             </button>
           </div>
+          {avatarUrl && (
+            <button
+              type="button"
+              className={styles.avatarDeleteBtn}
+              onClick={handleDeleteAvatar}
+              title="Eliminar foto"
+              disabled={uploadingAvatar}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
           <input
             ref={fileInputRef}
             type="file"

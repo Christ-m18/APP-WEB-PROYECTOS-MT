@@ -136,10 +136,13 @@ Si el plano no tiene NINGÚN código reconocible, devuelve {"items": []}. Pero a
 const USER_PROMPT = `Extrae el inventario de estructuras de este plano PDF. Analiza TODAS las páginas. Recorre las tablas fila por fila, las cajas junto a cada poste uno por uno, y suma las apariciones por código. Devuelve solo el objeto JSON con items.`
 
 interface RequestBody {
-  archivoBase64: string
+  archivoBase64?: string
+  storagePath?: string
   nombreArchivo: string
   proyectoId?: string | null
 }
+
+const RATE_LIMIT_POR_MINUTO = 5
 
 interface ItemExtraido {
   codigo: string
@@ -169,22 +172,60 @@ Deno.serve(async (req: Request) => {
     if (authErr || !user) return json({ error: 'unauthorized' }, 401)
 
     const body = (await req.json()) as RequestBody
-    if (!body.archivoBase64 || typeof body.archivoBase64 !== 'string') {
-      return json({ error: 'archivoBase64 requerido' }, 400)
-    }
     if (!body.nombreArchivo || typeof body.nombreArchivo !== 'string') {
       return json({ error: 'nombreArchivo requerido' }, 400)
+    }
+    if (!body.archivoBase64 && !body.storagePath) {
+      return json({ error: 'archivoBase64 o storagePath requerido' }, 400)
+    }
+
+    // ── Rate limiting (5 req/min por usuario) ──────────────────
+    const limitOk = await checkRateLimit(supabase, user.id)
+    if (!limitOk) {
+      return json(
+        { error: 'rate_limited', mensaje: `Máximo ${RATE_LIMIT_POR_MINUTO} importaciones por minuto. Espera 60s.` },
+        429
+      )
     }
 
     const apiKey = Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) return json({ error: 'server_misconfigured_missing_GEMINI_API_KEY' }, 500)
 
-    const archivoBytes = Math.ceil(body.archivoBase64.length * 0.75)
+    // ── Resolver base64: directo o desde storage ───────────────
+    let archivoBase64: string
+    if (body.archivoBase64) {
+      archivoBase64 = body.archivoBase64
+    } else {
+      const downloaded = await descargarDesdeStorage(supabase, body.storagePath!, user.id)
+      if (!downloaded) return json({ error: 'storage_path_invalid' }, 400)
+      archivoBase64 = downloaded
+    }
+
+    const archivoBytes = Math.ceil(archivoBase64.length * 0.75)
+
+    // ── Cache por SHA-256 del archivo ──────────────────────────
+    const hash = await sha256Hex(archivoBase64)
+    const cacheado = await buscarEnCache(supabase, user.id, hash)
+    if (cacheado) {
+      await logAudit(supabase, {
+        usuario_id: user.id,
+        proyecto_id: body.proyectoId ?? null,
+        archivo_nombre: body.nombreArchivo,
+        archivo_bytes: archivoBytes,
+        modelo: 'cache',
+        items_extraidos: cacheado,
+        hash_sha256: hash,
+        duracion_ms: Date.now() - t0,
+      })
+      return json({ items: cacheado, cache: true })
+    }
+
     auditBase = {
       usuario_id: user.id,
       proyecto_id: body.proyectoId ?? null,
       archivo_nombre: body.nombreArchivo,
       archivo_bytes: archivoBytes,
+      hash_sha256: hash,
     }
 
     const requestBody = JSON.stringify({
@@ -193,7 +234,7 @@ Deno.serve(async (req: Request) => {
         {
           role: 'user',
           parts: [
-            { inline_data: { mime_type: 'application/pdf', data: body.archivoBase64 } },
+            { inline_data: { mime_type: 'application/pdf', data: archivoBase64 } },
             { text: USER_PROMPT },
           ],
         },
@@ -257,6 +298,80 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'internal_error', detail: msg }, 500)
   }
 })
+
+// SHA-256 hex de un string. Usado para cache por contenido de PDF.
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input)
+  const buf = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// Devuelve items_extraidos de un import previo exitoso del mismo usuario con el mismo hash.
+// deno-lint-ignore no-explicit-any
+async function buscarEnCache(supabase: any, usuarioId: string, hash: string): Promise<unknown[] | null> {
+  try {
+    const { data } = await supabase
+      .from('imports_planos')
+      .select('items_extraidos')
+      .eq('usuario_id', usuarioId)
+      .eq('hash_sha256', hash)
+      .is('error', null)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data || !Array.isArray(data.items_extraidos) || data.items_extraidos.length === 0) return null
+    return data.items_extraidos
+  } catch {
+    return null
+  }
+}
+
+// Rate limit por usuario: incrementa contador en ventana de 1 min.
+// deno-lint-ignore no-explicit-any
+async function checkRateLimit(supabase: any, usuarioId: string): Promise<boolean> {
+  const ventana = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString()
+  try {
+    // Lee actual
+    const { data: existente } = await supabase
+      .from('rate_limits_imports')
+      .select('contador')
+      .eq('usuario_id', usuarioId)
+      .eq('ventana_minuto', ventana)
+      .maybeSingle()
+    const actual = existente?.contador ?? 0
+    if (actual >= RATE_LIMIT_POR_MINUTO) return false
+    // Upsert incremento
+    await supabase
+      .from('rate_limits_imports')
+      .upsert(
+        { usuario_id: usuarioId, ventana_minuto: ventana, contador: actual + 1 },
+        { onConflict: 'usuario_id,ventana_minuto' }
+      )
+    return true
+  } catch {
+    // En caso de error de tabla (no migrada aún) permitimos el request para no bloquear.
+    return true
+  }
+}
+
+// Descarga el PDF del bucket privado planos_tmp y lo devuelve en base64.
+// Solo permite paths del usuario autenticado: <userId>/<filename>.
+// deno-lint-ignore no-explicit-any
+async function descargarDesdeStorage(supabase: any, path: string, usuarioId: string): Promise<string | null> {
+  if (!path.startsWith(`${usuarioId}/`)) return null
+  try {
+    const { data, error } = await supabase.storage.from('planos_tmp').download(path)
+    if (error || !data) return null
+    const buf = new Uint8Array(await (data as Blob).arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!)
+    return btoa(bin)
+  } catch {
+    return null
+  }
+}
 
 async function callGeminiConReintentos(
   apiKey: string,

@@ -11,7 +11,6 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ['.tunnelmole.net'],
-    hmr: false,
   },
   build: {
     rollupOptions: {
