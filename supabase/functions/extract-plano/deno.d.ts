@@ -1,17 +1,13 @@
-// Ambient declarations para que el TypeScript del IDE no marque errores
-// en este archivo Deno. La extensión oficial de Deno para VSCode (denoland.vscode-deno)
-// ignora estas declaraciones cuando está activa para esta carpeta.
+// Ambient declarations para silenciar el TS del IDE cuando no está la extensión Deno.
+// La extensión denoland.vscode-deno (recomendada via .vscode/settings.json) ignora estas declaraciones.
 
-declare module 'https://deno.land/std@0.224.0/http/server.ts' {
-  export function serve(handler: (req: Request) => Response | Promise<Response>): void
-}
+declare module 'jsr:@supabase/functions-js/edge-runtime.d.ts' {}
 
-declare module 'https://esm.sh/@supabase/supabase-js@2.44.0' {
+declare module 'jsr:@supabase/supabase-js@2' {
   export * from '@supabase/supabase-js'
 }
 
 declare const Deno: {
-  env: {
-    get(key: string): string | undefined
-  }
+  env: { get(key: string): string | undefined }
+  serve(handler: (req: Request) => Response | Promise<Response>): void
 }

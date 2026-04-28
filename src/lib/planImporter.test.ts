@@ -89,6 +89,34 @@ describe('codigoCanonico', () => {
     expect(codigoCanonico('MT-305 RET')).toBe('MT-305')
     expect(codigoCanonico('AP-103 REUB')).toBe('AP-103')
   })
+  it('normalizes anomalous cable notations', () => {
+    expect(codigoCanonico('URD CU # 1/0 AWG')).toBe('URD CU #1/0 AWG')
+    expect(codigoCanonico('4AAAC#/2/0')).toBe('4AAAC#2/0')
+    expect(codigoCanonico('AAAC # 2/0 (E)')).toBe('AAAC #2/0')
+  })
+})
+
+// ─── normalizarCodigo (space-to-dash) ─────────────────────────────────────────
+
+describe('normalizarCodigo space-to-dash', () => {
+  it('normalizes HA 100B to HA-100B', () => {
+    expect(normalizarCodigo('HA 100B')).toBe('HA-100B')
+  })
+  it('normalizes BT 104 to BT-104', () => {
+    expect(normalizarCodigo('BT 104')).toBe('BT-104')
+  })
+  it('normalizes MT 105 to MT-105', () => {
+    expect(normalizarCodigo('MT 105')).toBe('MT-105')
+  })
+  it('normalizes 2HA 100B keeping quantity prefix', () => {
+    expect(normalizarCodigo('2HA 100B')).toBe('2HA-100B')
+  })
+  it('normalizes PR 101 to PR-101', () => {
+    expect(normalizarCodigo('PR 101')).toBe('PR-101')
+  })
+  it('normalizes TR 105 to TR-105', () => {
+    expect(normalizarCodigo('TR 105')).toBe('TR-105')
+  })
 })
 
 // ─── extraerCodigoBase ────────────────────────────────────────────────────────
@@ -128,6 +156,25 @@ describe('extraerCodigoBase', () => {
   it('handles protection codes', () => {
     expect(extraerCodigoBase('PR-101')).toBe('PR-101')
     expect(extraerCodigoBase('PT-101 2/0 (1 DV)')).toBe('PT-101')
+  })
+  it('handles 2-phase MT-2XX codes', () => {
+    expect(extraerCodigoBase('MT-201')).toBe('MT-201')
+    expect(extraerCodigoBase('MT-217')).toBe('MT-217')
+  })
+  it('handles wooden post codes MAD', () => {
+    expect(extraerCodigoBase('MAD-30-5')).toBe('MAD-30-5')
+  })
+  it('handles concrete post codes PC and PM', () => {
+    expect(extraerCodigoBase('PC-35')).toBe('PC-35')
+    expect(extraerCodigoBase('PC-40')).toBe('PC-40')
+    expect(extraerCodigoBase('PM-35')).toBe('PM-35')
+  })
+  it('handles PH protection codes', () => {
+    expect(extraerCodigoBase('PH-40')).toBe('PH-40')
+  })
+  it('handles AN, MTAF and other special dash codes', () => {
+    expect(extraerCodigoBase('AN-201')).toBe('AN-201')
+    expect(extraerCodigoBase('MTAF-101')).toBe('MTAF-101')
   })
 })
 

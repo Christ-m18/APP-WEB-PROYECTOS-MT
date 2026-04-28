@@ -39,11 +39,14 @@ const TOP_CANDIDATOS = 5
 // ─── Normalización ────────────────────────────────────────────────────────────
 
 export function normalizarCodigo(codigo: string): string {
-  return codigo
+  let n = codigo
     .trim()
     .toUpperCase()
     .replace(/\s*-\s*/g, '-')
     .replace(/\s+/g, ' ')
+  // Normaliza familias con espacio a guion: "HA 100B" → "HA-100B", "BT 104" → "BT-104"
+  n = n.replace(/^(\d*\s*)(MT|MTA|BT|PR|PT|TR|TRA|HA|AP|LB|PO|HAV|HPV|MCH|MAD|PC|PH|SF|SP|CV|CE|SO|CSM|DV)\s+(\d)/g, '$1$2-$3')
+  return n
 }
 
 // Normalización "dura" para exact-match con variantes: quita sufijos de estado
@@ -59,6 +62,9 @@ export function codigoCanonico(codigo: string): string {
   n = n.replace(/\s+/g, ' ').trim()
   // Normaliza postes: HAV-500-9 → HAV-500-09
   n = n.replace(/^(HAV|HPV|MCH)-(\d{3})-(\d)$/, '$1-$2-0$3')
+  // Normaliza cables con espacios y slashes anómalos: "URD CU # 1/0 AWG" -> "URD CU #1/0 AWG", "#/2/0" -> "#2/0"
+  n = n.replace(/#\s+/g, '#')
+  n = n.replace(/#\//g, '#')
   return n
 }
 
@@ -80,14 +86,22 @@ export function extraerCodigoBase(nombre: string): string {
   const patrones: RegExp[] = [
     // Postes hormigón: HAV-500-12, HPV-800-10, MCH-500-14
     /\b(HAV|HPV|MCH)-\d{3}-\d{1,2}\b/,
-    // Armados con sufijo -MT o -BT: CV4-MT, F3-MT, F6-BT, EA-MT, etc.
-    /\b(CV[1-9]|CE[1-9]|SF[1-9]|SO[1-9]|SP[1-9]|F[1-9]|CSA|CDA|C45|EA|EC|ET|FV|VV|AL|SU|SV|SVAF|DE|AN|POAC)-(MT|BT|S1|D1)\b/,
-    // Armados numerados con dash: MT-301, MTA-305, BT-104, PR-101, PT-101, AP-103, LB-608, TR-105, TRA-106, PO-110
-    /\b(MTA?|BT|LB|PR|PT|PTLB|PT1|AP|TRA?|PO)-\d{3}[A-Z]?\b/,
+    // Postes de concreto PC: PC-35, PC-40 y Metálicos PM: PM-35
+    /\b(?:PC|PM)-\d{2}\b/,
+    // Postes madera: MAD-30-5, MAD-40-3
+    /\bMAD-\d{2}-\d{1,2}\b/,
+    // Armados con sufijo -MT o -BT: CV4-MT, F3-MT, F6-BT, EA-MT, CSM-MT, etc.
+    /\b(CV[1-9]|CE[1-9]|SF[1-9]|SO[1-9]|SP[1-9]|F[1-9]|CSA|CDA|C45|EA|EC|ET|FV|VV|AL|SU|SV|SVAF|DE|AN|POAC|CSM)-(MT|BT|S1|D1)\b/,
+    // Armados numerados con dash: MT-301, MTA-305, BT-104, PR-101, PT-101, AP-103, LB-608, TR-105, TRA-106, PO-110, MT-201, DV-101
+    /\b(MTAF?|MTA|MT|BT|LB|PR|PT|PTLB|PT1|AP|TRA?|PO|AN|DV)-\d{3}[A-Z]?\b/,
     // Anclajes HA-100B, HA-106 (case-insensitive already via upper)
     /\bHA-\d{3}[A-Z]?\b/,
     // SS1, SS2 sin dash
     /\bSS[1-9]\b/,
+    // S6, S1, L1 standalone signals
+    /\b[SL][1-9]\b/,
+    // PH-NN (proteccion herrajes)
+    /\bPH-\d{2,3}\b/,
   ]
 
   for (const p of patrones) {
