@@ -28,6 +28,9 @@ const MAX_TOKENS = 16384
 // Intentos por modelo. 2 intentos con pausa de 2.5s = total máx 4 modelos x 2 x ~3s ≈ 24s (dentro del timeout de Edge 60s).
 const PAUSAS_MS = [0, 2500]
 
+// Incrementar cuando el prompt cambie significativamente para invalidar caché viejo.
+const PROMPT_VERSION = 'v4'
+
 const SYSTEM_PROMPT = `Eres un INGENIERO ELÉCTRICO experto en planos de distribución de media tensión (MT) y baja tensión (BT) de proyectos EDE/SIE de República Dominicana. Tu única tarea es leer el plano PDF adjunto y devolver un inventario JSON SOLO con estructuras, accesorios y CABLES PROPUESTOS (obra nueva). Lo existente, a retirar o a reubicar NO va al inventario.
 
 === REGLA MAESTRA: PROPUESTO vs EXISTENTE ===
@@ -121,27 +124,24 @@ Si la línea inicia con un número pegado o separado por espacio, ESE número es
 Los cables aparecen como pares: longitud (en metros) + calibre. Pueden estar al lado de un tramo del plano o dentro de una caja.
 
 Patrones típicos:
-- \`55m (P) AAAC#2/0(P)\` → cable AAAC#2/0 propuesto, 55 metros
-- \`55m (P) TPX#2/0(P)\` → cable TPX#2/0 propuesto, 55 metros
+- \`55m (P) AAAC#2/0(P)\` → cable AAAC#2/0 propuesto, 55 metros de vano
 - \`54m (E) AAAC#2(E) TPX#2/0(E)\` → cables EXISTENTES → EXCLUIR
-- \`9AAAC#2/0(E)\` → cable existente, EXCLUIR (el 9 NO es cantidad si va con sufijo (E); refiere a # de conductores existentes)
-- \`3AAAC#2/0(P)\` o \`4AAAC#2/0(P)\` → cable propuesto; el dígito al inicio puede ser # de fases. La CANTIDAD del item es los METROS del tramo asociado, NO el dígito.
-- Notaciones anómalas: \`3 URD CU # 1/0 AWG\` o \`4AAAC#/2/0(P)\`. Normaliza eliminando espacios extra tras el # y slashes mal puestos (\`URD CU #1/0\`, \`AAAC#2/0\`).
-- \`NEUTRO#2/0 (P)\` → Considéralo un cable válido de tipo \`NEUTRO#2/0\`.
-- \`46.32Mts 3AAAC#2/0(P)\` → cable propuesto, 46.32 metros. "Mts" = metros (equivale a "m"). El 3 es fases, NO cantidad.
-- \`51.32Mts 3AAAC#2/0(P)\` → mismo calibre, 51.32 metros más a sumar.
+- \`9AAAC#2/0(E)\` → cable existente, EXCLUIR
+- \`4AAAC#2/0(P)\` → cable propuesto; el 4 indica 4 CONDUCTORES. La cantidad total = conductores × metros del tramo.
+- \`3AAAC#2/0(P) 50mts\` → 3 conductores × 50 metros = 150 metros TOTALES de AAAC#2/0.
+- \`4AAAC#/2/0(P) 15mts\` → 4 conductores × 15 metros = 60 metros TOTALES de AAAC#2/0. Normaliza \`#/2/0\` → \`#2/0\`.
+- \`3URD#1/0 AWG AISL. 15KV NEU. CONC. AL. 33% (P) 15mts\` → 3 × 15 = 45 metros de URD #1/0. Ignora descripciones extra.
+- \`NEUTRO#2/0 (P)\` → cable válido de tipo \`NEUTRO#2/0\`.
 - \`45.00Mts\` SOLA sin calibre → IGNORAR (es solo distancia de vano).
-- \`3URD#1/0 AWG AISL. 15KV NEU. CONC. AL. 33% (P)\` → cable muy largo, extráelo como \`URD #1/0\`. Ignora descripciones extra de aislamiento, voltaje o tubería si ya reconoces el calibre principal.
 
 FORMATOS de distancia a reconocer:
 - \`55m\`, \`55 m\`, \`55M\`, \`55Mts\`, \`55 Mts\`, \`55.00Mts\`, \`46.32Mts\` — todos equivalen a metros.
-- La distancia puede tener decimales: \`46.32\`, \`51.32\`, \`36.39\`.
 - Cuando la distancia aparece ANTES del calibre (ej \`46.32Mts 3AAAC#2/0(P)\`), los metros se asocian a ese cable.
 
 REGLAS para cables:
-1. Cable PROPUESTO (\`(P)\` o sin sufijo si está en caja PP/sección PROP.) → INCLUIR. \`codigo\` = el calibre tal cual (ej \`AAAC#2/0\`, \`TPX#2/0\`, \`URD #1/0\`). Conserva el \`#\`. Quita el prefijo de fases (3, 4) del codigo.
-2. Cable EXISTENTE (\`(E)\`) → EXCLUIR. IMPORTANTE: Si el sufijo \`(E)\` o \`(P)\` aparece al final de una descripción larga de varias líneas (ej: URD CU... XLPE... (E)), aplícalo al cable principal.
-3. La CANTIDAD del cable = SUMA de metros de TODOS los tramos propuestos del MISMO calibre en TODO el plano. Si hay 46.32 + 51.32 + 45.00 de AAAC#2/0(P) en distintos tramos → 1 item codigo='AAAC#2/0' cantidad=143 (redondeado).
+1. Cable PROPUESTO (\`(P)\` o sin sufijo si está en caja PP/sección PROP.) → INCLUIR. \`codigo\` = el calibre (ej \`AAAC#2/0\`). Quita el prefijo de conductores (3, 4) del codigo.
+2. Cable EXISTENTE (\`(E)\`) → EXCLUIR.
+3. CANTIDAD = prefijo_conductores × metros_del_tramo. Ejemplo: \`4AAAC#2/0(P) 15mts\` → 4 × 15 = 60 metros. Si hay múltiples tramos del mismo calibre, SUMAR todos: 60 + 150 = 210 metros total.
 4. Si solo ves el calibre sin metros visibles, asume 0 metros y NO lo incluyas (mejor omitir que adivinar).
 5. Cables comunes a reconocer: \`AAAC#2/0\`, \`AAAC#4/0\`, \`AAAC#2\`, \`AAAC 477\`, \`AAAC 336\`, \`TPX#2/0\`, \`TPX#4/0\`, \`TPX#3/0\`, \`URD CU #1/0\`, \`URD #1/0\`, \`URD#2\`, \`Triplex 2/0\`, \`Triplex 3/0\`, \`Triplex 4/0\`, \`TRIPLEX 2/0\`, \`NEUTRO#2/0\`.
 6. Para cables, \`fuente: "otro"\`.
@@ -244,6 +244,106 @@ Si ves \`SECCIONADOR FUSIBLE (CUT OUT) 100 Amp.\` o \`APARTARRAYO 10 KV\` como s
 11. Identificadores de proyecto como \`CT-167857\`, \`A1\`, \`N/P:...\`, \`CIRC:...\` NO son estructuras. IGNORA.
 12. \`FV-MT (E)\` → EXCLUIR (existente). El espacio antes de \`(E)\` no cambia la regla.
 
+=== ANTI-PATRONES (errores comunes que DEBES evitar) ===
+
+1. \`CT's y PT's\`, \`CT Y PT\`, \`CT'S Y PT'S\`, \`CT's y PT's(REUB)\` → NUNCA son estructuras SIE. Son transformadores de corriente/potencial instrumentales. SIEMPRE IGNORAR sin importar sufijos.
+2. \`PT-60:1\`, \`CT-200:5\`, \`60:1\`, \`200:5\` → son RELACIONES DE TRANSFORMACIÓN de CT/PT (ej. 60 a 1). NO son códigos de estructura. Cualquier código con \`:\` es una relación, NO un item. IGNORAR.
+3. \`CIRC: ZFSA-103\` → identificador de circuito. NO es estructura. IGNORAR.
+4. \`PUNTO DE INTERCONEXIÓN\` → informativo. IGNORAR.
+5. \`TRANSFORMADOR REUB.\`, \`TPS\`, \`PROYECTO REUB.\` → son anotaciones de proyecto. IGNORAR.
+6. \`SUBESTACIÓN MOVIL...\`, \`SUBESTACION...\` → descripciones de subestación. NO son códigos SIE. IGNORAR siempre.
+7. NO incluyas cables existentes \`(E)\` en la cuenta. Si ves \`9AAAC#2/0(E)\` → EXCLUIR.
+8. Para cables, el prefijo numérico (3, 4, 9) es el número de CONDUCTORES. La cantidad total = conductores × metros. Ejemplo: \`4AAAC#2/0(P) 15mts\` = 4 × 15 = 60 metros. \`3AAAC#2/0(P) 50mts\` = 3 × 50 = 150 metros. Total AAAC#2/0 = 60 + 150 = 210 metros.
+9. NO cuentes como propuesto NINGÚN item de un poste PE que no tenga marcador PROP:/PROP./PROPUESTO/(P). Si un PE no tiene sección PROP ni marcador (P), TODOS sus items son existentes → EXCLUIR TODO.
+10. PERO si un PE tiene un marcador \`(P)\` junto a sus items, esos items SÍ son PROPUESTOS. Un PE puede tener items existentes Y propuestos simultáneamente.
+11. Descripciones largas con más de 5 palabras NO son códigos de estructura. Ejemplos a IGNORAR: \`SUBESTACIÓN MOVIL SISTEMA FERROVIARIO (TPS) 1.3 MVA\`.
+
+=== EJEMPLO REAL DE ENTRENAMIENTO (plano con mezcla de PE y PP) ===
+
+Plano con postes PE1-PE7 (existentes) y PP4-PP5 (propuestos):
+
+  PP4           ← modo=INCLUIR (PP)
+  HPV-500-12    ← INCLUIR ×1
+  MTA-303(ABIERTO) ← INCLUIR ×1 (ABIERTO es especificador técnico)
+  PR-203        ← INCLUIR ×1
+  PO-110        ← INCLUIR ×1
+  PR-101        ← INCLUIR ×1
+  CT's y PT's(REUB) ← IGNORAR (CT/PT no son estructura + REUB)
+
+  PP5           ← modo=INCLUIR (PP)
+  HPV-500-12    ← INCLUIR ×1
+  MTA-305       ← INCLUIR ×1
+  PR-203        ← INCLUIR ×1
+  SO2-MT        ← INCLUIR ×1
+  PO-110        ← INCLUIR ×1
+  PR-101        ← INCLUIR ×1
+
+  PE1           ← modo=EXCLUIR (PE sin PROP. ni (P))
+  (todo existente, EXCLUIR todo)
+
+  PE2           ← modo=EXCLUIR (PE sin PROP.)
+  (todo existente, EXCLUIR todo)
+
+  PE3           ← modo=EXCLUIR (PE sin PROP.)
+  (todo existente, EXCLUIR todo)
+
+  PE4           ← modo=EXCLUIR (PE)
+  (items existentes...)
+  PROP:         ← cambia modo a INCLUIR
+  CV4-MT        ← INCLUIR ×1
+  2F3-MT        ← INCLUIR F3-MT ×2
+  F2-MT         ← INCLUIR ×1
+  F6-BT         ← INCLUIR ×1
+  PR-102        ← INCLUIR ×1
+
+  PE5           ← modo=EXCLUIR (PE), PERO tiene marcador (P)
+  (P)           ← cambia modo a INCLUIR (marcador de propuesto)
+  HPV-800-12    ← INCLUIR ×1
+  CV4-MT        ← INCLUIR ×1
+  4F3-MT        ← INCLUIR F3-MT ×4
+  2EA-MT        ← INCLUIR EA-MT ×2
+  MTA-305       ← INCLUIR ×1
+  F6-BT         ← INCLUIR ×1
+  PR-101        ← INCLUIR ×1
+  PO-110        ← INCLUIR ×1
+
+  PE6           ← modo=EXCLUIR (PE sin PROP.)
+  (todo existente, EXCLUIR todo)
+
+  PE7           ← modo=EXCLUIR (PE)
+  (todos los items existentes hasta...)
+  PROP: F1-BT   ← F1-BT INCLUIR ×1 (PROP: inline)
+
+  Cables en tramos del plano:
+  4AAAC#2/0(P) 15mts ← 4 conductores × 15m = 60 metros de AAAC#2/0
+  3AAAC#2/0(P) 50mts ← 3 conductores × 50m = 150 metros de AAAC#2/0
+  Total AAAC#2/0 = 60 + 150 = 210 metros
+  9AAAC#2/0(E) ← cable EXISTENTE → EXCLUIR (no sumar)
+  3URD#1/0 AWG AISL. 15KV NEU. CONC. AL 33% (P) 15mts ← 3 × 15 = 45 metros de URD #1/0
+
+RESULTADO CORRECTO:
+{"items":[
+  {"codigo":"HPV-800-12","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"HPV-500-12","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"MTA-303 (ABIERTO)","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"MTA-305","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"PR-203","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"PO-110","cantidad":3,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"PR-101","cantidad":3,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"SO2-MT","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.95},
+  {"codigo":"CV4-MT","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"F3-MT","cantidad":6,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"EA-MT","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"F2-MT","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"F6-BT","cantidad":2,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"PR-102","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"F1-BT","cantidad":1,"fuente":"etiqueta","pagina":1,"confianza":0.9},
+  {"codigo":"AAAC#2/0","cantidad":210,"fuente":"otro","pagina":1,"confianza":0.9},
+  {"codigo":"URD #1/0","cantidad":45,"fuente":"otro","pagina":1,"confianza":0.85}
+]}
+
+Nota: PE1, PE2, PE3, PE6 NO aportan NADA. PE5 aporta TODO (tiene marcador P). PE7 solo aporta F1-BT. PE4 aporta su sección PROP. Cables: conductores × metros (4×15=60, 3×50=150, total=210). CT's y PT's IGNORADOS.
+
 === fuente del item ===
 
 - "etiqueta" → caja por poste
@@ -330,8 +430,8 @@ Deno.serve(async (req: Request) => {
 
     const archivoBytes = Math.ceil(archivoBase64.length * 0.75)
 
-    // ── Cache por SHA-256 del archivo ──────────────────────────
-    const hash = await sha256Hex(archivoBase64)
+    // ── Cache por SHA-256 del archivo + versión de prompt ──────
+    const hash = await sha256Hex(archivoBase64 + PROMPT_VERSION)
     const cacheado = await buscarEnCache(supabase, user.id, hash)
     if (cacheado) {
       await logAudit(supabase, {
@@ -412,7 +512,7 @@ Deno.serve(async (req: Request) => {
       duracion_ms: Date.now() - t0,
     })
 
-    return json({ items: itemsFinal })
+    return json({ items: itemsFinal, modelo: auditBase.modelo ?? 'unknown' })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return json({ error: 'internal_error', detail: msg }, 500)
@@ -751,6 +851,32 @@ function procesarItemsPostGemini(items: ItemExtraido[]): ItemExtraido[] {
   const FAMILIAS = /^(HAV|HPV|MCH|PC|PM|MAD|MT|MTA|MTAF|BT|LB|PR|PT|AP|TR|TRA|PO|HA|PH|AN|DV|SS|S[1-9]|L[1-9]|CV|CE|SF|SO|SP|F[1-9]|CSA|CDA|C45|EA|EC|ET|FV|VV|AL|SU|SV|SVAF|DE|POAC|CSM)/
   const CABLES = /^(AAAC|TPX|URD|TRIPLEX|NEUTRO|PVC|THW)/i
 
+  // Patrones a rechazar SIEMPRE (anti-patrones)
+  const RECHAZAR = [
+    /:/,                                       // Relaciones de transformación: PT-60:1, CT-200:5
+    /^CT['']?S?\b/i,                           // CT, CT's, CTs (transformadores de corriente)
+    /^PT['']?S?\s*(Y|&)/i,                     // PT's y ... (combinaciones CT/PT)
+    /\bCT['']?S?\s*(Y|&)\s*PT/i,               // "CT's y PT's" en cualquier posición
+    /^CIRC[:\s]/i,                              // Identificadores de circuito
+    /^PUNTO\s+DE/i,                             // "PUNTO DE INTERCONEXION"
+    /^PROYECTO\b/i,                             // "PROYECTO REUB."
+    /^TRANSFORMADOR\b/i,                        // Descripciones informativas
+    /^INTERRUPTOR\b/i,                          // "INTERRUPTOR AUTOMÁTICO..."
+    /^SECCIONADOR\b/i,                          // "SECCIONADOR FUSIBLE..."
+    /^APARTARRAYO\b/i,                          // "APARTARRAYO 10 KV"
+    /^FUSIBLE\b/i,                              // "FUSIBLE 7.15 AMP"
+    /^TPS$/i,                                   // Abreviatura de proyecto
+    /^SUBEST/i,                                 // "SUBESTACIÓN MOVIL...", "SUBESTACION..."
+    /^SISTEMA\b/i,                              // "SISTEMA FERROVIARIO..."
+    /^MOVIL\b/i,                                // false positive from subestación
+    /^\d+(\.\d+)?\s*(M|MTS|METROS?)$/i,        // Medidas sueltas: "45.00Mts", "15M"
+    /^\d+(\.\d+)?\s*(KVA|KW|AMP|HZ|V)\b/i,    // Valores eléctricos sueltos
+    /^N\/P:/i,                                  // "N/P:..." identificadores
+    /^ESCALA/i,                                 // "ESCALA: N/A"
+    /\bMVA\b/i,                                 // "1.3 MVA" — capacidades de subestación
+    /\bFERROVIARIO\b/i,                         // "SISTEMA FERROVIARIO"
+  ]
+
   const valid = items
     .map(item => ({
       ...item,
@@ -759,6 +885,15 @@ function procesarItemsPostGemini(items: ItemExtraido[]): ItemExtraido[] {
     }))
     .filter(item => {
       const code = item.codigo
+
+      // Rechazar anti-patrones primero
+      for (const pattern of RECHAZAR) {
+        if (pattern.test(code)) return false
+      }
+
+      // Rechazar descripciones largas (más de 5 palabras no son códigos)
+      if (code.split(/\s+/).length > 5) return false
+
       if (FAMILIAS.test(code)) return true
       if (CABLES.test(code)) return true
       if (/-(MT|BT)$/.test(code)) return true

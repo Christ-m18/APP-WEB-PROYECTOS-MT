@@ -38,6 +38,7 @@ interface ImportarPlanoInput {
 interface ImportarPlanoResponse {
   items: ItemExtraido[]
   cache?: boolean
+  modelo?: string
 }
 
 export function useImportarPlano() {
