@@ -133,6 +133,12 @@ export async function createProyecto(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No authenticated user')
 
+  // Plan limit check
+  const { data: limitData } = await (supabase.rpc as CallableFunction)('check_plan_limit', { tipo: 'proyectos' })
+  if (limitData && !limitData.allowed) {
+    throw new Error(`PLAN_LIMIT: Has alcanzado el limite de ${limitData.limite} proyectos de tu plan actual.`)
+  }
+
   const insertPayload: ProyectoInsert = { ...proyecto, usuario_id: user.id }
   const { data: proy, error: proyError } = await supabase
     .from('proyectos')

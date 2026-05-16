@@ -2,18 +2,20 @@ import { useNavigate } from 'react-router-dom'
 import { useProyectos } from '@/hooks/useProyectos'
 import { useTodaManoObra } from '@/hooks/useEstructuras'
 import { usePerfil } from '@/hooks/usePerfil'
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
 import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
 import { VOLTAJES } from '@/data/estructuras_sie'
-import { 
-  Plus, 
-  Briefcase, 
-  TrendingUp, 
-  CheckCircle2, 
-  ArrowRight, 
+import {
+  Plus,
+  Briefcase,
+  TrendingUp,
+  CheckCircle2,
+  ArrowRight,
   FileSpreadsheet,
   Activity,
   History,
-  Users
+  Users,
+  Zap
 } from 'lucide-react'
 import styles from './Dashboard.module.css'
 
@@ -22,6 +24,7 @@ export default function Dashboard() {
   const { data: proyectos = [], isLoading } = useProyectos()
   const { data: todaManoObra = [] } = useTodaManoObra()
   const { data: perfil } = usePerfil()
+  const { data: miSuscripcion } = useMiSuscripcion()
 
   const totalInversion = proyectos.reduce((acc, p) => {
     const partidas = p.partidas || []
@@ -97,6 +100,25 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {miSuscripcion?.uso && miSuscripcion.plan?.nombre === 'Gratis' && (
+        <div className={styles.statCard} style={{ marginBottom: '2rem', cursor: 'pointer' }} onClick={() => void navigate('/app/suscripcion')}>
+          <div className={styles.statIcon}><Zap size={24} /></div>
+          <div className={styles.statInfo} style={{ flex: 1 }}>
+            <span className={styles.statLabel}>
+              Plan {miSuscripcion.plan.nombre} — {miSuscripcion.uso.proyectos_usados}/{miSuscripcion.uso.proyectos_limite ?? 0} proyectos usados
+            </span>
+            <div style={{ height: 6, background: 'var(--color-border)', borderRadius: 3, marginTop: 4 }}>
+              <div style={{
+                height: '100%',
+                borderRadius: 3,
+                width: `${miSuscripcion.uso.proyectos_limite ? Math.min((miSuscripcion.uso.proyectos_usados / miSuscripcion.uso.proyectos_limite) * 100, 100) : 0}%`,
+                background: (miSuscripcion.uso.proyectos_limite && miSuscripcion.uso.proyectos_usados >= miSuscripcion.uso.proyectos_limite) ? '#ef4444' : 'var(--color-primary)',
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {proyectos.length > 0 && (
         <div className={styles.chartsGrid}>

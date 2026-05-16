@@ -1,13 +1,14 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
-import { 
-  LayoutDashboard, 
-  FolderSearch, 
-  PlusSquare, 
-  FileSpreadsheet, 
-  UserCircle, 
-  LogOut 
+import {
+  LayoutDashboard,
+  FolderSearch,
+  PlusSquare,
+  FileSpreadsheet,
+  CreditCard,
+  UserCircle,
+  LogOut
 } from 'lucide-react'
 import styles from './Sidebar.module.css'
 
@@ -16,6 +17,7 @@ const NAV = [
   { to: '/app/proyectos',         label: 'Proyectos',               icon: <FolderSearch size={20} />,    end: false },
   { to: '/app/presupuesto/nuevo', label: 'Nuevo Presupuesto',       icon: <PlusSquare size={20} />,      end: false },
   { to: '/app/resoluciones',      label: 'Estructuras SIE',         icon: <FileSpreadsheet size={20} />, end: false },
+  { to: '/app/suscripcion',       label: 'Mi Plan',                 icon: <CreditCard size={20} />,      end: false },
   { to: '/app/perfil',            label: 'Mi Perfil',               icon: <UserCircle size={20} />,      end: false },
 ] as const
 

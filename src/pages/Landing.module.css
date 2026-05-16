@@ -287,4 +287,9 @@
     gap: 1.5rem;
     padding: 2rem;
   }
+  .footer {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
 }

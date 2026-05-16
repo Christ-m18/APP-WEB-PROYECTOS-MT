@@ -261,3 +261,34 @@
   border-radius: 5px;
   transition: width 1s ease-out;
 }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .statsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  .actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .btnPrimary,
+  .btnSecondary {
+    width: 100%;
+    justify-content: center;
+  }
+  .projectRow {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .projectDate {
+    margin-left: 0;
+    width: fit-content;
+  }
+  .chartCard {
+    min-width: 0;
+  }
+  .recentSection {
+    padding: 1.25rem;
+  }
+}

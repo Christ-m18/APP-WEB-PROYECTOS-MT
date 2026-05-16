@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePerfil } from '@/hooks/usePerfil'
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
-import { Menu, Cpu, User, UserCircle, Camera, LogOut, ChevronDown, Settings } from 'lucide-react'
+import { Menu, Cpu, User, UserCircle, Camera, LogOut, ChevronDown, Settings, ShieldCheck, CreditCard } from 'lucide-react'
 import styles from './Header.module.css'
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ export default function Header({ toggleMobileMenu }: HeaderProps) {
   const [initials, setInitials] = useState<string | React.ReactElement>('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { data: perfil, isLoading } = usePerfil()
+  const { data: miSuscripcion } = useMiSuscripcion()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function Header({ toggleMobileMenu }: HeaderProps) {
           </div>
           <div>
             <h1 className={styles.title}>MT Presupuestos</h1>
-            <span className={styles.versionBadge}>SIE Pro</span>
+            <span className={styles.versionBadge}>{miSuscripcion?.plan?.nombre ?? 'SIE'}</span>
           </div>
         </div>
       </div>
@@ -137,11 +139,32 @@ export default function Header({ toggleMobileMenu }: HeaderProps) {
 
               <button
                 className={styles.dropdownItem}
+                onClick={() => { setDropdownOpen(false); void navigate('/app/suscripcion') }}
+                type="button"
+              >
+                <CreditCard size={16} /> Mi Plan
+              </button>
+
+              <button
+                className={styles.dropdownItem}
                 onClick={() => { setDropdownOpen(false); void navigate('/app/perfil', { state: { openSettings: true } }) }}
                 type="button"
               >
                 <Settings size={16} /> Configuración
               </button>
+
+              {perfil?.rol === 'admin' && perfil.activo !== false && (
+                <>
+                  <div className={styles.dropdownDivider} />
+                  <button
+                    className={styles.dropdownItem}
+                    onClick={() => { setDropdownOpen(false); void navigate('/app/admin') }}
+                    type="button"
+                  >
+                    <ShieldCheck size={16} /> Panel Admin
+                  </button>
+                </>
+              )}
 
               <div className={styles.dropdownDivider} />
 

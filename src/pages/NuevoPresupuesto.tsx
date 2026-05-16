@@ -16,7 +16,7 @@ import { mergeConPartidas } from '@/lib/planImporter'
 import { resumenPresupuesto, formatRD, totalPartida } from '@/utils/calculos'
 import { exportarPDF } from '@/utils/exportPDF'
 import { VOLTAJES } from '@/data/estructuras_sie'
-import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp } from 'lucide-react'
+import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp, Crown, ShieldAlert } from 'lucide-react'
 import type { Partida, Proyecto, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig, ManoObraRow, Material } from '@/types'
 import styles from './NuevoPresupuesto.module.css'
 
@@ -37,6 +37,7 @@ export default function NuevoPresupuesto() {
   const [activeTab, setActiveTab] = useState<TabKey>('partidas')
   const [empresaPanelOpen, setEmpresaPanelOpen] = useState(false)
   const [importarOpen, setImportarOpen] = useState(false)
+  const [planLimitReached, setPlanLimitReached] = useState(false)
 
   // ─── Empresa config (persiste en localStorage) ─────────────────────────
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => {
@@ -367,10 +368,15 @@ export default function NuevoPresupuesto() {
         void navigate('/app/proyectos')
       }
     } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e)
+      if (errMsg.includes('PLAN_LIMIT')) {
+        setPlanLimitReached(true)
+        return
+      }
       console.error('Submission error:', e)
       toast({ 
         title: isEditing ? 'Error de Sincronización' : 'Fallo en la creación', 
-        description: String(e), 
+        description: errMsg, 
         variant: 'destructive' 
       })
     }
@@ -858,6 +864,39 @@ export default function NuevoPresupuesto() {
         catalogo={estructuras}
         onConfirm={handleImportConfirm}
       />
+
+      {/* ── Plan Limit Overlay ─────────────────────────────────── */}
+      {planLimitReached && (
+        <div className={styles.limitOverlay}>
+          <div className={styles.limitCard}>
+            <div className={styles.limitIconWrap}>
+              <ShieldAlert size={48} />
+            </div>
+            <h2 className={styles.limitTitle}>Límite de Plan Alcanzado</h2>
+            <p className={styles.limitDesc}>
+              Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan actual.
+              Mejora tu plan para continuar creando presupuestos sin restricciones.
+            </p>
+            <div className={styles.limitActions}>
+              <button
+                type="button"
+                className={styles.limitBtnUpgrade}
+                onClick={() => void navigate('/app/suscripcion')}
+              >
+                <Crown size={18} />
+                Mejorar Mi Plan
+              </button>
+              <button
+                type="button"
+                className={styles.limitBtnBack}
+                onClick={() => setPlanLimitReached(false)}
+              >
+                Volver al Editor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

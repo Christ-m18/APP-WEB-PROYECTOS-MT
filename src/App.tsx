@@ -14,6 +14,9 @@ const NuevoPresupuesto = lazy(() => import('@/pages/NuevoPresupuesto'))
 const Proyectos = lazy(() => import('@/pages/Proyectos'))
 const Resoluciones = lazy(() => import('@/pages/Resoluciones'))
 const Perfil = lazy(() => import('@/pages/Perfil'))
+const Suscripcion = lazy(() => import('@/pages/Suscripcion'))
+const AdminPanel = lazy(() => import('@/pages/AdminPanel'))
+const AdminRoute = lazy(() => import('@/components/auth/AdminRoute'))
 
 function PageLoader() {
   return (
@@ -45,7 +48,11 @@ export default function App() {
           <Route path="presupuesto/:id" element={<NuevoPresupuesto />} />
           <Route path="proyectos" element={<Proyectos />} />
           <Route path="resoluciones" element={<Resoluciones />} />
+          <Route path="suscripcion" element={<Suscripcion />} />
           <Route path="perfil" element={<Perfil />} />
+          <Route element={<AdminRoute />}>
+            <Route path="admin" element={<AdminPanel />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

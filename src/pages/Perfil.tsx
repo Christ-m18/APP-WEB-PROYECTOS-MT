@@ -11,19 +11,22 @@ import { Input } from '@/components/ui/input'
 import { PhoneInput, CountryFlag, parsePhoneValue, COUNTRIES, type Country } from '@/components/ui/phone-input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
-import { User, Shield, LogOut, Building, Mail, Activity, Check, Pencil, X, Save, Camera, Trash2 } from 'lucide-react'
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
+import { User, Shield, LogOut, Building, Mail, Activity, Check, Pencil, X, Save, Camera, Trash2, CreditCard, AlertTriangle } from 'lucide-react'
 import styles from './Perfil.module.css'
 
 export default function Perfil() {
   const navigate = useNavigate()
   const location = useLocation()
   const { data: perfil, isLoading } = usePerfil()
+  const { data: miSuscripcion } = useMiSuscripcion()
   const upsertMutation = useUpsertPerfil()
   const [initials, setInitials] = useState('??')
   const [isEditing, setIsEditing] = useState(false)
   const [phoneCountry, setPhoneCountry] = useState<Country>(COUNTRIES[0])
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -82,14 +85,30 @@ export default function Perfil() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Validate file before uploading
+    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+    if (file.size > MAX_SIZE) {
+      toast({ title: 'Archivo muy grande', description: 'La imagen no puede superar los 10MB.', variant: 'destructive' })
+      if (e.target) e.target.value = ''
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Formato inválido', description: 'Solo se permiten archivos de imagen (JPG, PNG, WebP).', variant: 'destructive' })
+      if (e.target) e.target.value = ''
+      return
+    }
+
     setUploadingAvatar(true)
     try {
       const url = await uploadAvatar(file)
+      if (!url) throw new Error('No se obtuvo la URL del avatar')
       await upsertMutation.mutateAsync({ avatar_url: url })
       setAvatarUrl(url)
       toast({ title: 'Avatar actualizado correctamente' })
     } catch (err) {
-      toast({ title: 'Error al subir avatar', description: String(err), variant: 'destructive' })
+      console.error('Avatar upload error:', err)
+      toast({ title: 'Error al subir avatar', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
     } finally {
       setUploadingAvatar(false)
       if (e.target) e.target.value = ''
@@ -98,17 +117,16 @@ export default function Perfil() {
 
   const handleDeleteAvatar = async () => {
     if (!avatarUrl) return
-    if (!window.confirm('¿Seguro que deseas eliminar tu foto de perfil?')) return
+    setShowDeleteConfirm(false)
     setUploadingAvatar(true)
     try {
       await deleteAvatar()
-      // En la base de datos se guarda null si no hay avatar, upsertPerfil lo permite omitiendo pero aquí queremos explícitamente sobreescribirlo a null.
-      // UpsertPerfil usa upsert que puede lidiar con null.
       await upsertMutation.mutateAsync({ avatar_url: null })
       setAvatarUrl(null)
       toast({ title: 'Foto de perfil eliminada' })
     } catch (err) {
-      toast({ title: 'Error al eliminar foto', description: String(err), variant: 'destructive' })
+      console.error('Avatar delete error:', err)
+      toast({ title: 'Error al eliminar foto', description: err instanceof Error ? err.message : String(err), variant: 'destructive' })
     } finally {
       setUploadingAvatar(false)
     }
@@ -177,7 +195,7 @@ export default function Perfil() {
             <button
               type="button"
               className={styles.avatarDeleteBtn}
-              onClick={handleDeleteAvatar}
+              onClick={() => setShowDeleteConfirm(true)}
               title="Eliminar foto"
               disabled={uploadingAvatar}
             >
@@ -313,6 +331,10 @@ export default function Perfil() {
             
             <div className={styles.statusBox}>
               <div className={styles.statusItem}>
+                <span><CreditCard size={14} style={{ display: 'inline', marginRight: 4 }} />PLAN ACTUAL</span>
+                <span className={styles.statusValue}>{miSuscripcion?.plan?.nombre ?? 'Sin plan'} — {miSuscripcion?.uso ? `${miSuscripcion.uso.proyectos_usados}/${miSuscripcion.uso.proyectos_limite ?? 'ilimitado'} proyectos` : '...'}</span>
+              </div>
+              <div className={styles.statusItem}>
                 <span>LATENCIA DEL SERVIDOR</span>
                 <span className={styles.statusValue}>12ms — Excelente</span>
               </div>
@@ -339,6 +361,38 @@ export default function Perfil() {
           </div>
         </section>
       </div>
+      {/* ═══ Confirm Delete Avatar Modal ═══ */}
+      {showDeleteConfirm && (
+        <div className={styles.confirmOverlay} onClick={() => setShowDeleteConfirm(false)}>
+          <div className={styles.confirmCard} onClick={e => e.stopPropagation()}>
+            <div className={styles.confirmIconWrapper}>
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className={styles.confirmTitle}>¿Eliminar foto de perfil?</h3>
+            <p className={styles.confirmText}>
+              Esta acción eliminará tu avatar actual de forma permanente. Podrás subir uno nuevo en cualquier momento.
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.confirmBtnCancel}
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={styles.confirmBtnDelete}
+                onClick={() => void handleDeleteAvatar()}
+                disabled={uploadingAvatar}
+              >
+                <Trash2 size={15} />
+                {uploadingAvatar ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

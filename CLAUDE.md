@@ -1,3 +1,12 @@
+## Approach
+
+- Read existing files before writing. Don't re-read unless changed.
+- Thorough in reasoning, concise in output.
+- Skip files over 100KB unless required.
+- No sycophantic openers or closing fluff.
+- No emojis or em-dashes.
+- Do not guess APIs, versions, flags, commit SHAs, or package names. Verify by reading code or docs before asserting.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -12,12 +21,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:coverage` — one-shot run with V8 coverage.
 - Run a single test file: `npx vitest run src/utils/calculos.test.ts`
 - Run tests matching a name: `npx vitest -t "resumenPresupuesto"`
+- `npm run ci` — typecheck → lint → test (non-watch) → used by GitHub Actions.
+- `npm run db:types` — regenerate `src/types/supabase.ts` from the remote Supabase schema.
 
-Required env vars (read in `src/lib/supabase.ts`, throws at startup if missing): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+Required env vars (read in `src/lib/supabase.ts`, throws at startup if missing): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. CI uses dummy values since tests don't hit Supabase.
 
 ## Architecture
 
 **Domain:** Budgeting app for medium-voltage (MT) electrical projects per Dominican Republic's SIE regulations. Currency is RD$, tax is ITBIS (18%). Domain identifiers are in **Spanish**: `proyectos` (budgets/projects), `partidas` (line items), `estructuras` (MT structure catalog, e.g. `MT-301`, `HAV-300-9`), `materiales`, `perfiles`, `mano_obra` (labor). Preserve Spanish names when adding code — they match Supabase column names.
+
+### Types
+
+Domain types (`Proyecto`, `Partida`, `Perfil`, `Material`, `ManoObraRow`, `ResumenPresupuesto`, etc.) live in `src/types/index.ts`. Auto-generated Supabase DB types live in `src/types/supabase.ts` (regenerate with `npm run db:types`). Prefer importing domain types from `@/types` and only reach into supabase types when you need raw DB row shapes.
 
 ### State & data flow
 
@@ -57,6 +72,10 @@ The `partidas.total` column is **generated in Postgres** — never send it on in
 ### Security
 
 `index.html` ships a CSP (`default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data: https://flagcdn.com`) plus `X-Content-Type-Options`, `Referrer-Policy`. When adding an external asset host (fonts, images, APIs), update the CSP or it will be blocked at runtime.
+
+### CI
+
+`.github/workflows/ci.yml` runs on push to `main` and on PRs: Node 24, `npm run ci` (typecheck → lint → test:run → build). Uses `concurrency` with `cancel-in-progress` to avoid stacking runs.
 
 ## Notes for edits
 
