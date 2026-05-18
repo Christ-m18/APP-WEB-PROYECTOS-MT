@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import Header from './Header'
 import Sidebar from './Sidebar'
+import AccountBlockedOverlay from '@/components/AccountBlockedOverlay'
 import { PageTransition } from '@/components/ui/page-transition'
 import styles from './Layout.module.css'
 
@@ -12,11 +13,12 @@ export default function Layout() {
 
   return (
     <div className={styles.shell}>
+      <AccountBlockedOverlay />
       <Header toggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)} />
       <div className={styles.body}>
-        <Sidebar 
-          isMobileMenuOpen={isMobileMenuOpen} 
-          closeMobileMenu={() => setIsMobileMenuOpen(false)} 
+        <Sidebar
+          isMobileMenuOpen={isMobileMenuOpen}
+          closeMobileMenu={() => setIsMobileMenuOpen(false)}
         />
         <main className={styles.main}>
           <AnimatePresence mode="wait">

@@ -133,6 +133,16 @@ export async function createProyecto(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('No authenticated user')
 
+  // Blocked user check
+  const { data: perfilData } = await supabase
+    .from('perfiles')
+    .select('activo')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (perfilData && perfilData.activo === false) {
+    throw new Error('BLOCKED: Tu cuenta ha sido suspendida. Contacta al administrador para mas informacion.')
+  }
+
   // Plan limit check
   const { data: limitData } = await (supabase.rpc as CallableFunction)('check_plan_limit', { tipo: 'proyectos' })
   if (limitData && !limitData.allowed) {

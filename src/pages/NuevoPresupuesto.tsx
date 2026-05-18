@@ -16,7 +16,7 @@ import { mergeConPartidas } from '@/lib/planImporter'
 import { resumenPresupuesto, formatRD, totalPartida } from '@/utils/calculos'
 import { exportarPDF } from '@/utils/exportPDF'
 import { VOLTAJES } from '@/data/estructuras_sie'
-import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp, Crown, ShieldAlert } from 'lucide-react'
+import { Plus, Trash2, Save, X, Layers, Box, Loader2, Info, FileText, Package, FileStack, Wrench, ChevronDown, Upload, Building2, FileUp, Crown, ShieldAlert, ShieldBan, Mail } from 'lucide-react'
 import type { Partida, Proyecto, TipoExportPDF, MaterialConsolidado, ManoObraLinea, EmpresaConfig, ManoObraRow, Material } from '@/types'
 import styles from './NuevoPresupuesto.module.css'
 
@@ -38,6 +38,7 @@ export default function NuevoPresupuesto() {
   const [empresaPanelOpen, setEmpresaPanelOpen] = useState(false)
   const [importarOpen, setImportarOpen] = useState(false)
   const [planLimitReached, setPlanLimitReached] = useState(false)
+  const [accountBlocked, setAccountBlocked] = useState(false)
 
   // ─── Empresa config (persiste en localStorage) ─────────────────────────
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => {
@@ -369,6 +370,10 @@ export default function NuevoPresupuesto() {
       }
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e)
+      if (errMsg.includes('BLOCKED')) {
+        setAccountBlocked(true)
+        return
+      }
       if (errMsg.includes('PLAN_LIMIT')) {
         setPlanLimitReached(true)
         return
@@ -872,9 +877,9 @@ export default function NuevoPresupuesto() {
             <div className={styles.limitIconWrap}>
               <ShieldAlert size={48} />
             </div>
-            <h2 className={styles.limitTitle}>Límite de Plan Alcanzado</h2>
+            <h2 className={styles.limitTitle}>Limite de Plan Alcanzado</h2>
             <p className={styles.limitDesc}>
-              Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan actual.
+              Has alcanzado el limite de <strong>3 proyectos</strong> de tu plan actual.
               Mejora tu plan para continuar creando presupuestos sin restricciones.
             </p>
             <div className={styles.limitActions}>
@@ -892,6 +897,35 @@ export default function NuevoPresupuesto() {
                 onClick={() => setPlanLimitReached(false)}
               >
                 Volver al Editor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Account Blocked Overlay ───────────────────────────── */}
+      {accountBlocked && (
+        <div className={styles.limitOverlay}>
+          <div className={styles.limitCard}>
+            <div className={styles.limitIconWrap} style={{ background: 'linear-gradient(135deg, #fee2e2, #fecaca)', color: '#dc2626', boxShadow: '0 8px 24px -4px rgba(220, 38, 38, 0.25)' }}>
+              <ShieldBan size={48} />
+            </div>
+            <h2 className={styles.limitTitle}>Cuenta Suspendida</h2>
+            <p className={styles.limitDesc}>
+              Tu cuenta ha sido <strong>desactivada por un administrador</strong>.
+              No puedes crear ni editar proyectos hasta que se restablezca el acceso.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: '#f8fafc', border: '1px solid var(--color-border)', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', textAlign: 'left', fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: 1.6, fontWeight: 500 }}>
+              <Mail size={16} style={{ flexShrink: 0, marginTop: 2, color: 'var(--color-primary)' }} />
+              <span>Contacta al administrador para resolver esta situacion y recuperar el acceso a tu cuenta.</span>
+            </div>
+            <div className={styles.limitActions}>
+              <button
+                type="button"
+                className={styles.limitBtnBack}
+                onClick={() => void navigate('/app')}
+              >
+                Volver al Inicio
               </button>
             </div>
           </div>
