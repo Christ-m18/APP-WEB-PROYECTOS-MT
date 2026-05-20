@@ -353,5 +353,5 @@
 
 @media (max-width: 500px) {
   .card { padding: 2.5rem 1.5rem; }
-  .row { grid-template-columns: 1fr; }
+  .row, .rowUneven { grid-template-columns: 1fr; }
 }

@@ -147,6 +147,10 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+  .table {
+    overflow: visible;
+    border-radius: 0;
+  }
   .subTableWrapper {
     padding-left: 1.5rem;
   }

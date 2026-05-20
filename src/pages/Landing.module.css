@@ -286,6 +286,10 @@
     border-radius: 30px;
     gap: 1.5rem;
     padding: 2rem;
+    align-items: stretch;
+  }
+  .featureItem {
+    max-width: 100%;
   }
   .footer {
     flex-direction: column;

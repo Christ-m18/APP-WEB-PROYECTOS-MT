@@ -75,7 +75,7 @@ export default function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <header className={styles.dashHeader}>
         <div>
           <h1 className={styles.pageTitle}>Panel de Control</h1>
           <p style={{ color: 'var(--color-text-muted)', fontWeight: 600, fontSize: '1rem' }}>
@@ -191,7 +191,7 @@ export default function Dashboard() {
               <div className={styles.projectDate}>
                 {new Date(p.fecha).toLocaleDateString('es-DO', { day: '2-digit', month: 'short', year: 'numeric' })}
               </div>
-              <div style={{ marginLeft: '2rem', color: 'var(--color-primary)' }}>
+              <div className={styles.projectArrow}>
                 <ArrowRight size={20} strokeWidth={3} />
               </div>
             </div>
