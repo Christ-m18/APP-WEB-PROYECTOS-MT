@@ -1,0 +1,34 @@
+.oauthButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.oauthBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  height: 3rem;
+  width: 100%;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+.oauthBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.oauthBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

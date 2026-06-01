@@ -82,3 +82,17 @@ The `partidas.total` column is **generated in Postgres** — never send it on in
 - There are stray `.js`/`.jsx` stubs next to `.tsx` files from the 2026-04 TypeScript migration — they are dead; delete rather than sync.
 - `createProyecto`/`updateProyecto` intentionally cast `Partida` rows through `any` to strip generated columns — keep the normalization when adding partida fields.
 - Layout uses CSS Modules (`Layout.module.css`, `Sidebar.module.css`, etc.) that aren't checked in as `.ts` — don't attempt to refactor module-CSS class access to Tailwind without also removing the `.module.css` file.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues at `https://github.com/Christ-m18/APP-WEB-PROYECTOS-MT`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) match the defaults. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

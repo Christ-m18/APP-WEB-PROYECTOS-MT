@@ -7,6 +7,7 @@ import { registroSchema, type RegistroFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/phone-input'
+import { OAuthButtons } from '@/components/ui/oauth-buttons'
 import { UserPlus, ArrowLeft, Mail, Lock, User, ShieldCheck, KeyRound, AlertTriangle, MailWarning, Phone } from 'lucide-react'
 import styles from './Auth.module.css'
 
@@ -263,6 +264,13 @@ export default function Registro() {
         <Button type="submit" disabled={isSubmitting} className={styles.btnSubmit} style={{ marginTop: '1rem' }}>
           <ShieldCheck size={20} strokeWidth={3} /> {isSubmitting ? 'REGISTRANDO...' : 'CREAR MI CUENTA PROFESIONAL'}
         </Button>
+
+        <div className={styles.oauthDivider}>
+          <span className={styles.oauthDividerLine} />
+          <span className={styles.oauthDividerText}>O REGISTRARSE CON</span>
+          <span className={styles.oauthDividerLine} />
+        </div>
+        <OAuthButtons />
 
         <p className={styles.switchText}>
           ¿YA TIENES CUENTA?{' '}

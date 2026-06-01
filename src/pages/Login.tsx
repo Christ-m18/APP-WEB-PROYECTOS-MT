@@ -7,6 +7,7 @@ import { queryClient } from '@/lib/queryClient'
 import { loginSchema, type LoginFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { OAuthButtons } from '@/components/ui/oauth-buttons'
 import { LogIn, ArrowLeft, Mail, KeyRound, CircuitBoard, AlertTriangle, MailWarning, ShieldOff } from 'lucide-react'
 import styles from './Auth.module.css'
 
@@ -179,6 +180,13 @@ export default function Login() {
           <LogIn size={20} strokeWidth={3} />
           {isSubmitting ? 'AUTENTICANDO...' : 'ENTRAR AL PORTAL'}
         </Button>
+
+        <div className={styles.oauthDivider}>
+          <span className={styles.oauthDividerLine} />
+          <span className={styles.oauthDividerText}>O CONTINUAR CON</span>
+          <span className={styles.oauthDividerLine} />
+        </div>
+        <OAuthButtons />
 
         <p className={styles.switchText}>
           ¿SIN CREDENCIALES?{' '}

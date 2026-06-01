@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { queryClient } from '@/lib/queryClient'
 import { CheckCircle, Loader2, XCircle } from 'lucide-react'
 import styles from './Auth.module.css'
 
@@ -34,6 +35,24 @@ export default function AuthCallback() {
           return
         }
 
+        // Para usuarios OAuth, poblar el perfil con los datos del provider si aún está vacío
+        const provider = session.user.app_metadata['provider'] as string | undefined
+        if (provider === 'google' || provider === 'facebook') {
+          const meta = session.user.user_metadata
+          const toStr = (v: unknown): string => (typeof v === 'string' ? v : '')
+          const fullName = toStr(meta['full_name']) || toStr(meta['name'])
+          const nombre = toStr(meta['given_name']) || fullName.split(' ')[0] || ''
+          const apellido = toStr(meta['family_name']) || fullName.split(' ').slice(1).join(' ')
+          if (nombre) {
+            await supabase
+              .from('perfiles')
+              .update({ nombre, apellido: apellido || undefined })
+              .eq('id', session.user.id)
+              .is('nombre', null)
+          }
+        }
+
+        queryClient.clear()
         setStatus('success')
 
         // Redirigir automáticamente a la app tras 2 segundos
