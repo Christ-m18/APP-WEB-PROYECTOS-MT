@@ -99,10 +99,13 @@ export default function Registro() {
       }
 
       // 2. Intentar registro con Supabase Auth
+      // emailRedirectTo asegura que el link de confirmación siempre apunta a
+      // /auth/callback independientemente del Site URL configurado en el dashboard.
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             nombre: data.nombre,
             apellido: data.apellido,
