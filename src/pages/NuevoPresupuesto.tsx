@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEstructuras, useMaterialesMultiples, useManoObraPorEstructuras } from '@/hooks/useEstructuras'
 import { useProyecto, useCreateProyecto, useUpdateProyecto } from '@/hooks/useProyectos'
 import { usePerfil } from '@/hooks/usePerfil'
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
 import { proyectoSchema, type ProyectoFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,8 +31,14 @@ export default function NuevoPresupuesto() {
   const { data: estructuras = [], isLoading: loadingEst } = useEstructuras()
   const { data: proyectoExistente, isLoading: loadingProy } = useProyecto(id ?? '')
   const { data: perfil } = usePerfil()
+  const { data: suscripcionData } = useMiSuscripcion()
   const createMutation = useCreateProyecto()
   const updateMutation = useUpdateProyecto()
+
+  // Permissive while loading (undefined). Only block once data confirms Free plan.
+  const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
+  // Block edit of saved projects for Free users. Creating new is always allowed.
+  const editBlockedByPlan = isEditing && esPlanGratis
 
   const [partidas, setPartidas] = useState<Omit<Partida, 'id' | 'proyecto_id'>[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('partidas')
@@ -897,6 +904,39 @@ export default function NuevoPresupuesto() {
                 onClick={() => setPlanLimitReached(false)}
               >
                 Volver al Editor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit blocked for Free plan ───────────────────────── */}
+      {editBlockedByPlan && (
+        <div className={styles.limitOverlay}>
+          <div className={styles.limitCard}>
+            <div className={styles.limitIconWrap}>
+              <Crown size={48} />
+            </div>
+            <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
+            <p className={styles.limitDesc}>
+              Editar proyectos guardados requiere el plan <strong>Pro</strong>.
+              Mejora tu plan para modificar y gestionar tus presupuestos sin restricciones.
+            </p>
+            <div className={styles.limitActions}>
+              <button
+                type="button"
+                className={styles.limitBtnUpgrade}
+                onClick={() => void navigate('/app/suscripcion')}
+              >
+                <Crown size={18} />
+                Mejorar Mi Plan
+              </button>
+              <button
+                type="button"
+                className={styles.limitBtnBack}
+                onClick={() => void navigate('/app/proyectos')}
+              >
+                Volver a Proyectos
               </button>
             </div>
           </div>
