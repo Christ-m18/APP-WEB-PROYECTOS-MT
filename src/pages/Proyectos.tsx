@@ -2,16 +2,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProyectos, useDeleteProyecto } from '@/hooks/useProyectos'
 import { useTodaManoObra } from '@/hooks/useEstructuras'
-import { 
-  Plus, 
-  Search, 
-  Edit3, 
-  Trash2, 
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
+import {
+  Plus,
+  Search,
+  Edit3,
+  Trash2,
   CheckCircle2,
   Clock,
   XCircle,
   FileText,
-  FolderSync
+  FolderSync,
+  Crown
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
@@ -23,14 +25,30 @@ export default function Proyectos() {
   const { data: proyectos = [], isLoading } = useProyectos()
   const deleteMutation = useDeleteProyecto()
   const [searchTerm, setSearchTerm] = useState('')
+  const [showProModal, setShowProModal] = useState(false)
   const { data: todaManoObra = [] } = useTodaManoObra()
+  const { data: suscripcionData } = useMiSuscripcion()
+  // Permissive while loading (undefined). Only block once we know it's Free.
+  const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
 
-  const filtered = proyectos.filter(p => 
+  const filtered = proyectos.filter(p =>
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.cliente.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleEdit = (id: string) => {
+    if (esPlanGratis) {
+      setShowProModal(true)
+      return
+    }
+    void navigate(`/app/presupuesto/${id}`)
+  }
+
   const handleDelete = async (id: string, nombre: string) => {
+    if (esPlanGratis) {
+      setShowProModal(true)
+      return
+    }
     if (!confirm(`¿Estás seguro de eliminar "${nombre}"?`)) return
     try {
       await deleteMutation.mutateAsync(id)
@@ -42,13 +60,13 @@ export default function Proyectos() {
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
-      case 'aprobado': 
+      case 'aprobado':
         return <span className={[styles.badge, styles.green].join(' ')}><CheckCircle2 size={12} /> APROBADO</span>
-      case 'enviado': 
+      case 'enviado':
         return <span className={[styles.badge, styles.blue].join(' ')}><Clock size={12} /> EN REVISIÓN</span>
-      case 'rechazado': 
+      case 'rechazado':
         return <span className={[styles.badge, styles.red].join(' ')}><XCircle size={12} /> RECHAZADO</span>
-      default: 
+      default:
         return <span className={[styles.badge, styles.gray].join(' ')}><FileText size={12} /> BORRADOR</span>
     }
   }
@@ -65,7 +83,7 @@ export default function Proyectos() {
       <div className={styles.searchBar}>
         <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
           <Search size={18} style={{ position: 'absolute', left: '1.25rem', color: 'var(--color-primary)' }} />
-          <input 
+          <input
             className={styles.searchInput}
             placeholder="Buscar por nombre de proyecto o cliente..."
             value={searchTerm}
@@ -116,15 +134,15 @@ export default function Proyectos() {
                       <td>{getStatusBadge(p.estado)}</td>
                       <td>
                         <div className={styles.actionsCell}>
-                          <button 
-                            className={styles.btnEdit} 
-                            onClick={() => void navigate(`/app/presupuesto/${p.id}`)}
+                          <button
+                            className={styles.btnEdit}
+                            onClick={() => handleEdit(p.id)}
                             title="Editar parámetros"
                           >
                             <Edit3 size={16} />
                           </button>
-                          <button 
-                            className={styles.btnDel} 
+                          <button
+                            className={styles.btnDel}
                             onClick={() => void handleDelete(p.id, p.nombre)}
                             title="Eliminar registro"
                           >
@@ -140,6 +158,38 @@ export default function Proyectos() {
           </table>
         </div>
       </div>
+
+      {showProModal && (
+        <div className={styles.limitOverlay}>
+          <div className={styles.limitCard}>
+            <div className={styles.limitIconWrap}>
+              <Crown size={48} />
+            </div>
+            <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
+            <p className={styles.limitDesc}>
+              Editar y eliminar proyectos requiere el plan <strong>Pro</strong>.
+              Mejora tu plan para gestionar tus presupuestos sin restricciones.
+            </p>
+            <div className={styles.limitActions}>
+              <button
+                type="button"
+                className={styles.limitBtnUpgrade}
+                onClick={() => void navigate('/app/suscripcion')}
+              >
+                <Crown size={18} />
+                Mejorar Mi Plan
+              </button>
+              <button
+                type="button"
+                className={styles.limitBtnBack}
+                onClick={() => setShowProModal(false)}
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
