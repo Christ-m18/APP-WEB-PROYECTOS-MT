@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { OAuthButtons } from '@/components/ui/oauth-buttons'
 import { LogIn, ArrowLeft, Mail, KeyRound, CircuitBoard, AlertTriangle, MailWarning, ShieldOff } from 'lucide-react'
+import LegalFooter from '@/components/legal/LegalFooter'
 import styles from './Auth.module.css'
 
 type LoginErrorType = 'email' | 'password' | 'unverified' | 'generic'
@@ -196,6 +197,8 @@ export default function Login() {
         <Link to="/" className={styles.backLink}>
           <ArrowLeft size={16} /> VOLVER A LA PÁGINA INICIAL
         </Link>
+
+        <LegalFooter variant="dark" />
       </form>
     </div>
   )

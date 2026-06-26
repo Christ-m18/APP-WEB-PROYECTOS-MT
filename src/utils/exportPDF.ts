@@ -154,6 +154,10 @@ function dibujarEncabezado(
   return y + boxH + 8
 }
 
+// ─── Disclaimer corto para pie de página ──────────────────────────────────
+const DISCLAIMER_CORTO =
+  'Documento referencial. Verifique con un profesional calificado antes de su uso contractual o de compra.'
+
 // ─── Pie de página ────────────────────────────────────────────────────────
 function dibujarPie(doc: jsPDF, empresa?: EmpresaConfig): void {
   const pageCount = doc.getNumberOfPages()
@@ -164,7 +168,12 @@ function dibujarPie(doc: jsPDF, empresa?: EmpresaConfig): void {
     // Línea divisoria
     doc.setDrawColor(C.border[0], C.border[1], C.border[2])
     doc.setLineWidth(0.3)
-    doc.line(MARGIN, pageH - 15, pageW - MARGIN, pageH - 15)
+    doc.line(MARGIN, pageH - 18, pageW - MARGIN, pageH - 18)
+    // Disclaimer (línea superior del pie)
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+    doc.text(DISCLAIMER_CORTO, pageW / 2, pageH - 13, { align: 'center' })
     // Texto izquierda
     doc.setFontSize(7)
     doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
@@ -173,6 +182,53 @@ function dibujarPie(doc: jsPDF, empresa?: EmpresaConfig): void {
     doc.text(`© ${firma} — Documento generado electrónicamente`, MARGIN, pageH - 8)
     // Texto derecha
     doc.text(`Pág. ${i} / ${pageCount}`, pageW - MARGIN, pageH - 8, { align: 'right' })
+  }
+}
+
+// ─── Sección final de aviso legal ─────────────────────────────────────────
+function agregarAvisoLegal(doc: jsPDF): void {
+  doc.addPage()
+  const pageW = doc.internal.pageSize.width
+  let y = 24
+
+  // Encabezado de aviso
+  doc.setFillColor(C.primary2[0], C.primary2[1], C.primary2[2])
+  doc.rect(0, 0, pageW, 16, 'F')
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.white[0], C.white[1], C.white[2])
+  doc.text('AVISO LEGAL', MARGIN, 11)
+
+  // Cuerpo
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(C.primary2[0], C.primary2[1], C.primary2[2])
+  doc.text('Carácter referencial del documento', MARGIN, y)
+  y += 6
+  doc.setFontSize(8.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(C.text[0], C.text[1], C.text[2])
+  const parrafos: string[] = [
+    'Este documento ha sido generado electrónicamente por MT-PRESUPUESTOS-SIE, herramienta digital de apoyo profesional para la elaboración de presupuestos de proyectos eléctricos de Media Tensión conforme a las regulaciones de la Superintendencia de Electricidad (SIE) de la República Dominicana.',
+    '1. Los precios, cantidades, cálculos de subtotal, gastos generales, ITBIS (18%) y total general son estimaciones. No constituyen oferta vinculante, factura, contrato ni asesoría profesional. Los precios del catálogo se obtienen de proveedores comerciales (entre otros, IGMELEC y Grape) y pueden estar desactualizados.',
+    '2. Es responsabilidad exclusiva del usuario validar todos los valores con un ingeniero eléctrico colegiado, contador o profesional competente antes de utilizar este documento para contratar, comprar materiales, ejecutar obra o presentar declaraciones tributarias.',
+    '3. Los proyectos eléctricos de Media Tensión entrañan riesgos para la seguridad física de personas y bienes. La responsabilidad técnica del diseño y ejecución recae exclusivamente en el ingeniero responsable del proyecto. El uso de la Aplicación no sustituye su firma, sello ni responsabilidad profesional.',
+    '4. El operador de MT-PRESUPUESTOS-SIE no se hace responsable por errores, omisiones, decisiones de inversión, contratación o ejecución basadas en este documento, ni por las consecuencias fiscales derivadas de los cálculos mostrados.',
+    '5. Este documento refleja la información introducida al momento de la generación y no se actualiza automáticamente. Solicite siempre cotización formal directa al proveedor antes de cualquier orden de compra.',
+    '6. Para verificar la información del presupuesto, contacte al emisor cuyos datos figuran en el encabezado.',
+  ]
+  const usableW = pageW - MARGIN * 2
+  for (const p of parrafos) {
+    const lines = doc.splitTextToSize(p, usableW) as string[]
+    for (const line of lines) {
+      if (y > 260) {
+        doc.addPage()
+        y = 24
+      }
+      doc.text(line, MARGIN, y)
+      y += 5
+    }
+    y += 3
   }
 }
 
@@ -459,6 +515,7 @@ export async function exportarPDF({
     }
   }
 
+  agregarAvisoLegal(doc)
   dibujarPie(doc, empresa)
   const filename = `${tipo}-${proyecto.nombre.toLowerCase().replace(/\s+/g, '-')}.pdf`
   doc.save(filename)

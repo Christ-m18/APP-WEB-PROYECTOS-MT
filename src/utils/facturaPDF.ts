@@ -223,10 +223,33 @@ export function generarFacturaPDF(data: FacturaData): void {
     doc.text(info, col, row)
   })
 
+  // ─── Aviso legal corto ───────────────────────────────────────
+  const avisoY = bY + 6
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+  const avisoLegal = doc.splitTextToSize(
+    'AVISO LEGAL: Esta factura tiene carácter informativo y se emite tras la verificación manual del pago. Si requiere comprobante fiscal especial (NCF, retenciones, RNC), debe solicitarlo previamente al equipo del operador. Los pagos efectuados no son reembolsables salvo duplicidad de cobro acreditada o error imputable al operador. Para consultas: info@mtpresupuestos.com.',
+    pageW - MARGIN * 2,
+  ) as string[]
+  avisoLegal.forEach((line, idx) => {
+    doc.text(line, MARGIN, avisoY + idx * 3.5)
+  })
+
   // ─── Footer ──────────────────────────────────────────────────
   doc.setDrawColor(C.border[0], C.border[1], C.border[2])
   doc.setLineWidth(0.3)
-  doc.line(MARGIN, pageH - 18, pageW - MARGIN, pageH - 18)
+  doc.line(MARGIN, pageH - 22, pageW - MARGIN, pageH - 22)
+
+  doc.setFontSize(6.5)
+  doc.setFont('helvetica', 'italic')
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2])
+  doc.text(
+    'Documento referencial. Verifique los datos con el operador antes de cualquier reclamación.',
+    pageW / 2,
+    pageH - 17,
+    { align: 'center' },
+  )
 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')

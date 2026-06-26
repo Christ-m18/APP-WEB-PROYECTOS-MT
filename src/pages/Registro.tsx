@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { OAuthButtons } from '@/components/ui/oauth-buttons'
 import { UserPlus, ArrowLeft, Mail, Lock, User, ShieldCheck, KeyRound, AlertTriangle, MailWarning, Phone } from 'lucide-react'
+import LegalFooter from '@/components/legal/LegalFooter'
 import styles from './Auth.module.css'
 
 type RegErrorType = 'email_exists' | 'phone_exists' | 'weak_password' | 'generic'
@@ -76,7 +77,19 @@ export default function Registro() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegistroFormData>({ resolver: zodResolver(registroSchema) })
+  } = useForm<RegistroFormData>({
+    resolver: zodResolver(registroSchema),
+    defaultValues: {
+      nombre: '',
+      apellido: '',
+      empresa: '',
+      telefono: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      aceptaTerminos: false,
+    },
+  })
 
   const onSubmit = async (data: RegistroFormData) => {
     setRegError(null)
@@ -244,6 +257,68 @@ export default function Registro() {
               {errors.confirmPassword && <span className={styles.alert}>{errors.confirmPassword.message}</span>}
             </div>
           </div>
+
+          {/* Consentimiento legal obligatorio */}
+          <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.6rem',
+                fontSize: '0.78rem',
+                lineHeight: 1.45,
+                color: 'rgba(226, 232, 240, 0.85)',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                {...register('aceptaTerminos')}
+                aria-required="true"
+                aria-invalid={errors.aceptaTerminos ? 'true' : 'false'}
+                style={{
+                  marginTop: '0.2rem',
+                  width: '16px',
+                  height: '16px',
+                  accentColor: '#6366f1',
+                  cursor: 'pointer',
+                }}
+              />
+              <span>
+                He leído y acepto los{' '}
+                <Link to="/terminos" target="_blank" rel="noopener noreferrer" className={styles.link}>
+                  Términos y Condiciones
+                </Link>
+                , la{' '}
+                <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className={styles.link}>
+                  Política de Privacidad
+                </Link>{' '}
+                y el{' '}
+                <Link to="/descargo" target="_blank" rel="noopener noreferrer" className={styles.link}>
+                  Descargo de Responsabilidad
+                </Link>
+                . Comprendo que los presupuestos generados tienen carácter
+                referencial y deben verificarse con un profesional calificado.
+              </span>
+            </label>
+            {errors.aceptaTerminos && (
+              <span className={styles.alert} role="alert">
+                {errors.aceptaTerminos.message}
+              </span>
+            )}
+            <p
+              style={{
+                marginTop: '0.5rem',
+                fontSize: '0.7rem',
+                color: 'rgba(148, 163, 184, 0.7)',
+                lineHeight: 1.4,
+              }}
+            >
+              Esta aplicación usa almacenamiento local del navegador (localStorage)
+              para guardar la configuración de empresa y mantener la sesión activa.
+              No utilizamos cookies publicitarias ni de seguimiento.
+            </p>
+          </div>
         </div>
 
         {/* Banner de error contextual */}
@@ -283,6 +358,8 @@ export default function Registro() {
         <Link to="/" className={styles.backLink}>
           <ArrowLeft size={16} /> VOLVER AL INICIO
         </Link>
+
+        <LegalFooter variant="dark" />
       </form>
     </div>
   )

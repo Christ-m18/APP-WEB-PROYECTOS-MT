@@ -9,6 +9,9 @@ const Login = lazy(() => import('@/pages/Login'))
 const Registro = lazy(() => import('@/pages/Registro'))
 const ConfirmarCorreo = lazy(() => import('@/pages/ConfirmarCorreo'))
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'))
+const Terminos = lazy(() => import('@/pages/Terminos'))
+const Privacidad = lazy(() => import('@/pages/Privacidad'))
+const Descargo = lazy(() => import('@/pages/Descargo'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const NuevoPresupuesto = lazy(() => import('@/pages/NuevoPresupuesto'))
 const Proyectos = lazy(() => import('@/pages/Proyectos'))
@@ -40,6 +43,9 @@ export default function App() {
         <Route path="/registro" element={<Registro />} />
         <Route path="/confirmar-correo" element={<ConfirmarCorreo />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/terminos" element={<Terminos />} />
+        <Route path="/privacidad" element={<Privacidad />} />
+        <Route path="/descargo" element={<Descargo />} />
 
         {/* Rutas de la app (con layout sidebar) */}
         <Route path="/app" element={<Layout />}>

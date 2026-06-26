@@ -14,6 +14,9 @@ export const registroSchema = z
     email: z.string().email('Correo inválido'),
     password: z.string().min(6, 'Mínimo 6 caracteres'),
     confirmPassword: z.string(),
+    aceptaTerminos: z.boolean().refine((v) => v === true, {
+      message: 'Debes aceptar los Términos y la Política de Privacidad',
+    }),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'Las contraseñas no coinciden',

@@ -36,6 +36,7 @@ describe('registroSchema', () => {
     email: 'juan@mt.com',
     password: 'pass1234',
     confirmPassword: 'pass1234',
+    aceptaTerminos: true,
   }
   it('accepts valid registration', () => {
     expect(registroSchema.safeParse(valid).success).toBe(true)
@@ -55,6 +56,16 @@ describe('registroSchema', () => {
     expect(
       registroSchema.safeParse({ ...valid, email: 'not-valid' }).success
     ).toBe(false)
+  })
+  it('rejects when terms are not accepted', () => {
+    expect(
+      registroSchema.safeParse({ ...valid, aceptaTerminos: false }).success
+    ).toBe(false)
+  })
+  it('rejects when terms field is missing', () => {
+    const { aceptaTerminos: _omit, ...sinTerminos } = valid
+    void _omit
+    expect(registroSchema.safeParse(sinTerminos).success).toBe(false)
   })
 })
 

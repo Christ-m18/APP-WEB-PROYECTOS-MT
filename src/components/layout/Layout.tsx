@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import AccountBlockedOverlay from '@/components/AccountBlockedOverlay'
+import LegalFooter from '@/components/legal/LegalFooter'
 import { PageTransition } from '@/components/ui/page-transition'
 import styles from './Layout.module.css'
 
@@ -26,6 +27,7 @@ export default function Layout() {
               <Outlet />
             </PageTransition>
           </AnimatePresence>
+          <LegalFooter variant="light" />
         </main>
       </div>
     </div>

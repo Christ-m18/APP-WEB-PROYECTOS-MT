@@ -32,5 +32,8 @@
       "Bash(ls tsconfig*.json vite.config.ts)",
       "Bash(npm --version)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "firecrawl"
+  ]
 }
