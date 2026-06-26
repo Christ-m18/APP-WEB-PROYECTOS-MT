@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
+import { hasCurrentLegalConsent } from '@/lib/legalConsent'
 import { loginSchema, type LoginFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,6 +65,8 @@ const errorConfig: Record<LoginErrorType, {
 export default function Login() {
   const navigate = useNavigate()
   const [loginError, setLoginError] = useState<LoginError | null>(null)
+  // Pre-marcado si el usuario ya aceptó la versión vigente en este navegador.
+  const [oauthConsent, setOauthConsent] = useState<boolean>(() => hasCurrentLegalConsent())
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -187,7 +190,60 @@ export default function Login() {
           <span className={styles.oauthDividerText}>O CONTINUAR CON</span>
           <span className={styles.oauthDividerLine} />
         </div>
-        <OAuthButtons />
+
+        {/* Consentimiento legal requerido también para OAuth (puede ser un alta nueva) */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.55rem',
+            margin: '0.75rem 0 0.5rem',
+            fontSize: '0.72rem',
+            lineHeight: 1.45,
+            color: 'rgba(226, 232, 240, 0.78)',
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={oauthConsent}
+            onChange={(e) => setOauthConsent(e.target.checked)}
+            aria-label="Aceptar Términos y Privacidad para continuar con un proveedor externo"
+            style={{
+              marginTop: '0.2rem',
+              width: '15px',
+              height: '15px',
+              accentColor: '#6366f1',
+              cursor: 'pointer',
+            }}
+          />
+          <span>
+            Al continuar con Google o Facebook acepto los{' '}
+            <Link to="/terminos" target="_blank" rel="noopener noreferrer" className={styles.link}>
+              Términos
+            </Link>
+            , la{' '}
+            <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className={styles.link}>
+              Política de Privacidad
+            </Link>{' '}
+            y el{' '}
+            <Link to="/descargo" target="_blank" rel="noopener noreferrer" className={styles.link}>
+              Descargo
+            </Link>
+            .
+          </span>
+        </label>
+
+        <OAuthButtons
+          consentAccepted={oauthConsent}
+          consentMethod="oauth_login"
+          onConsentRequired={() =>
+            setLoginError({
+              type: 'generic',
+              message: 'Debes aceptar los Términos y la Política de Privacidad antes de continuar con un proveedor externo.',
+            })
+          }
+        />
 
         <p className={styles.switchText}>
           ¿SIN CREDENCIALES?{' '}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Provider } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { recordLegalConsent, type ConsentMethod } from '@/lib/legalConsent'
 import styles from './oauth-buttons.module.css'
 
 const GoogleIcon = () => (
@@ -18,10 +19,46 @@ const FacebookIcon = () => (
   </svg>
 )
 
-export function OAuthButtons() {
+interface OAuthButtonsProps {
+  /**
+   * Si se pasa `false`, los botones quedan deshabilitados y al hacer clic se
+   * invoca `onConsentRequired`. Si se pasa `true`, el flujo OAuth se inicia y
+   * el consentimiento se registra en `localStorage`. Si es `undefined`, no se
+   * aplica el gate (compatibilidad hacia atrás).
+   */
+  consentAccepted?: boolean
+  /**
+   * Se invoca cuando el usuario hace clic en un proveedor sin haber aceptado
+   * el consentimiento legal.
+   */
+  onConsentRequired?: () => void
+  /**
+   * Etiqueta del método de consentimiento que se registrará al iniciar OAuth.
+   * Default: `'oauth_login'`.
+   */
+  consentMethod?: ConsentMethod
+}
+
+export function OAuthButtons({
+  consentAccepted,
+  onConsentRequired,
+  consentMethod = 'oauth_login',
+}: OAuthButtonsProps = {}) {
   const [loading, setLoading] = useState<Provider | null>(null)
 
+  const gateActive = consentAccepted !== undefined
+  const blocked = gateActive && consentAccepted !== true
+
   const handleOAuth = async (provider: Provider) => {
+    if (blocked) {
+      onConsentRequired?.()
+      return
+    }
+    // Registramos el consentimiento ANTES de redirigir para que sobreviva al
+    // round-trip OAuth: AuthCallback lo encontrará al volver del proveedor.
+    if (gateActive) {
+      recordLegalConsent(consentMethod)
+    }
     setLoading(provider)
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -36,12 +73,19 @@ export function OAuthButtons() {
     // On success the browser navigates away; state cleanup is not needed
   }
 
+  const disabled = loading !== null
+  const buttonTitle = blocked
+    ? 'Debes aceptar los Términos antes de continuar'
+    : undefined
+
   return (
-    <div className={styles.oauthButtons}>
+    <div className={styles.oauthButtons} aria-describedby={blocked ? 'oauth-consent-warning' : undefined}>
       <button
         type="button"
         className={styles.oauthBtn}
-        disabled={loading !== null}
+        disabled={disabled}
+        aria-disabled={blocked ? 'true' : undefined}
+        title={buttonTitle}
         onClick={() => void handleOAuth('google')}
       >
         <GoogleIcon />
@@ -50,12 +94,28 @@ export function OAuthButtons() {
       <button
         type="button"
         className={styles.oauthBtn}
-        disabled={loading !== null}
+        disabled={disabled}
+        aria-disabled={blocked ? 'true' : undefined}
+        title={buttonTitle}
         onClick={() => void handleOAuth('facebook')}
       >
         <FacebookIcon />
         {loading === 'facebook' ? 'Redirigiendo...' : 'Continuar con Facebook'}
       </button>
+      {blocked && (
+        <p
+          id="oauth-consent-warning"
+          role="status"
+          style={{
+            margin: '0.4rem 0 0',
+            fontSize: '0.72rem',
+            color: '#fb7185',
+            textAlign: 'center',
+          }}
+        >
+          Marca la casilla de aceptación de Términos para continuar con un proveedor externo.
+        </p>
+      )}
     </div>
   )
 }

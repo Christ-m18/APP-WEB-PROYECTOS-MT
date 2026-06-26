@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { recordLegalConsent } from '@/lib/legalConsent'
 import { registroSchema, type RegistroFormData } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +77,7 @@ export default function Registro() {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegistroFormData>({
     resolver: zodResolver(registroSchema),
@@ -90,6 +92,8 @@ export default function Registro() {
       aceptaTerminos: false,
     },
   })
+
+  const consentAceptado = watch('aceptaTerminos') === true
 
   const onSubmit = async (data: RegistroFormData) => {
     setRegError(null)
@@ -157,6 +161,9 @@ export default function Registro() {
           console.warn('Profile creation deferred:', err)
         }
       }
+
+      // Registrar consentimiento legal (versión + timestamp) en el cliente.
+      recordLegalConsent('email')
 
       void navigate('/confirmar-correo')
     } catch (err) {
@@ -348,7 +355,16 @@ export default function Registro() {
           <span className={styles.oauthDividerText}>O REGISTRARSE CON</span>
           <span className={styles.oauthDividerLine} />
         </div>
-        <OAuthButtons />
+        <OAuthButtons
+          consentAccepted={consentAceptado}
+          consentMethod="oauth_registro"
+          onConsentRequired={() =>
+            setRegError({
+              type: 'generic',
+              message: 'Debes aceptar los Términos y la Política de Privacidad antes de continuar con Google o Facebook.',
+            })
+          }
+        />
 
         <p className={styles.switchText}>
           ¿YA TIENES CUENTA?{' '}

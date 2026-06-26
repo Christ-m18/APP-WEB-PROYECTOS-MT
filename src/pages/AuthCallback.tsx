@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
+import { recordLegalConsent, readLegalConsent } from '@/lib/legalConsent'
 import { CheckCircle, Loader2, XCircle } from 'lucide-react'
 import styles from './Auth.module.css'
 
@@ -79,7 +80,15 @@ export default function AuthCallback() {
       handled.current = true
       clearTimeout(timeoutId)
 
-      setIsOAuth(isOAuthProvider(session))
+      const oauth = isOAuthProvider(session)
+      setIsOAuth(oauth)
+
+      // Si es un alta/login OAuth y no hay registro previo de consentimiento,
+      // lo registramos al cerrar el ciclo. El click en OAuthButtons ya lo hace,
+      // pero esto cubre el caso de un retorno directo sin pasar por el botón.
+      if (oauth && !readLegalConsent()) {
+        recordLegalConsent('oauth_login')
+      }
 
       try {
         await populateOAuthProfile(session)
