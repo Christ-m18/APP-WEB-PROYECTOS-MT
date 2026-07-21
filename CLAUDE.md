@@ -63,7 +63,7 @@ The `partidas.total` column is **generated in Postgres** — never send it on in
 
 `src/components/ui/` holds shadcn-style wrappers around Radix (`button`, `input`, `toast`, `badge`, `skeleton`, `searchable-select`, `phone-input`, `page-transition`). Use `cn()` from `src/lib/utils.ts` (clsx + tailwind-merge) for class composition. Tailwind config at `tailwind.config.ts` defines a custom `primary`/`accent`/`success` palette — prefer these tokens over raw hex. Some pages also use CSS Modules (`*.module.css`) alongside Tailwind.
 
-`Resoluciones.tsx` uses `@tanstack/react-virtual` to render ~4,000 catalog rows — preserve virtualization when editing that page.
+`Resoluciones.tsx` renders the catalog's ~416 distinct `estructuras` (one row each, with an expandable materials sub-table per row) as a plain, non-virtualized table — there is no virtualization in this component. `@tanstack/react-virtual` is listed in `package.json` but unused anywhere in `src/`; don't assume it's wired into this page.
 
 ### Path alias & imports
 

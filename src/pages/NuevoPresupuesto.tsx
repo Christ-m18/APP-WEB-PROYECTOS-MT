@@ -103,6 +103,15 @@ export default function NuevoPresupuesto() {
 
   const [hasLoaded, setHasLoaded] = useState(false)
 
+  // React Router reutiliza esta misma instancia del componente al navegar entre
+  // /presupuesto/:id con distintos id (misma ruta, sin remount). Sin este reset,
+  // `hasLoaded` quedaba en true y las partidas del proyecto anterior (materiales,
+  // conductores, etc.) permanecían visibles al abrir otro proyecto para editar.
+  useEffect(() => {
+    setHasLoaded(false)
+    setPartidas([])
+  }, [id])
+
   useEffect(() => {
     if (proyectoExistente && !hasLoaded) {
       reset({
@@ -211,31 +220,46 @@ export default function NuevoPresupuesto() {
 
     partidas.forEach(partida => {
       if (!partida.estructura) return
-      
+
       const materialesDeEst = todosLosMateriales.filter(m => m.estructura === partida.estructura)
-      
+      if (materialesDeEst.length === 0) return
+
+      // El usuario puede sobrescribir el precio_unitario de la partida (tab Partidas).
+      // Si difiere del costo base del catálogo, escalamos proporcionalmente el precio
+      // de cada material de esa estructura para que el Anexo de Materiales refleje
+      // el precio editado en vez del precio de catálogo original.
+      const est = estructuras.find(e => e.estructura === partida.estructura)
+      const costoBase = est?.costo_materiales_rd ?? 0
+      const factorPrecio = costoBase > 0 ? (Number(partida.precio_unitario) || 0) / costoBase : 1
+
       materialesDeEst.forEach(m => {
         if (!m.materiales) return
-        
+
         const rawMat = m.materiales
         const mat = Array.isArray(rawMat) ? rawMat[0] : rawMat
         if (!mat || !mat.codigo) return
 
         const key = mat.codigo
         const existing = map.get(key) || { material: mat, total: 0, precioTotal: 0 }
-        
+
         const cantRequerida = (Number(partida.cantidad) || 0) * (Number(m.cantidad) || 0)
-        const matPrecio = Number(mat.precio_igmelec) || Number(mat.precio_grape) || 0
+        const matPrecio = (Number(mat.precio_igmelec) || Number(mat.precio_grape) || 0) * factorPrecio
         existing.total += cantRequerida
         existing.precioTotal += cantRequerida * matPrecio
-        
+
         map.set(key, existing)
       })
     })
 
     const results = Array.from(map.values())
     return results.sort((a, b) => (String(a.material.codigo) || '').localeCompare(String(b.material.codigo) || ''))
-  }, [partidas, todosLosMateriales])
+  }, [partidas, todosLosMateriales, estructuras])
+
+  // Precio unitario efectivo de un material consolidado: promedio ponderado de
+  // precioTotal/total en vez del precio de catálogo crudo, para que coincida con
+  // el factor de precio aplicado arriba (ver `consolidado`).
+  const precioUnitarioConsolidado = (item: { total: number; precioTotal: number }): number =>
+    item.total > 0 ? item.precioTotal / item.total : 0
 
   const handleExport = async (tipo: TipoExportPDF) => {
     const formValues = getValues()
@@ -264,7 +288,7 @@ export default function NuevoPresupuesto() {
       codigo: c.material.codigo,
       descripcion: c.material.descripcion,
       unidad: c.material.unidad,
-      precioUnitario: (Number(c.material.precio_igmelec) || Number(c.material.precio_grape) || 0) * overheadFactor,
+      precioUnitario: precioUnitarioConsolidado(c) * overheadFactor,
       cantidadTotal: c.total,
       subtotal: c.precioTotal * overheadFactor
     }))
@@ -715,7 +739,7 @@ export default function NuevoPresupuesto() {
                         <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>{item.material.descripcion}</td>
                         <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--color-text-muted)' }}>{item.material.unidad}</td>
                         <td style={{ textAlign: 'right', fontWeight: 900 }}>{item.total.toLocaleString()}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{formatRD((Number(item.material.precio_igmelec) || Number(item.material.precio_grape) || 0) * (1 + (Number(overhead) || 0) / 100))}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{formatRD(precioUnitarioConsolidado(item) * (1 + (Number(overhead) || 0) / 100))}</td>
                         <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)', fontSize: '0.9rem' }}>{formatRD(item.precioTotal * (1 + (Number(overhead) || 0) / 100))}</td>
                       </tr>
                     ))}
