@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProyectos } from '@/hooks/useProyectos'
 import { useTodaManoObra } from '@/hooks/useEstructuras'
@@ -15,7 +16,8 @@ import {
   Activity,
   History,
   Users,
-  Zap
+  Zap,
+  Crown
 } from 'lucide-react'
 import styles from './Dashboard.module.css'
 
@@ -25,6 +27,18 @@ export default function Dashboard() {
   const { data: todaManoObra = [] } = useTodaManoObra()
   const { data: perfil } = usePerfil()
   const { data: miSuscripcion } = useMiSuscripcion()
+  const [showProModal, setShowProModal] = useState(false)
+
+  // Permissive while loading (undefined). Only block once we know it's not Pro.
+  const esPlanGratis = miSuscripcion !== undefined && miSuscripcion.plan?.nombre !== 'Pro'
+
+  const handleNew = () => {
+    if (esPlanGratis) {
+      setShowProModal(true)
+      return
+    }
+    void navigate('/app/presupuesto/nuevo')
+  }
 
   const totalInversion = proyectos.reduce((acc, p) => {
     const partidas = p.partidas || []
@@ -83,7 +97,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className={styles.actions} style={{ marginBottom: 0 }}>
-          <button className={styles.btnPrimary} onClick={() => void navigate('/app/presupuesto/nuevo')}>
+          <button className={styles.btnPrimary} onClick={handleNew}>
             <Plus size={20} strokeWidth={3} /> NUEVO PROYECTO
           </button>
         </div>
@@ -166,7 +180,7 @@ export default function Dashboard() {
             <FileSpreadsheet size={64} style={{ margin: '0 auto 1.5rem', opacity: 0.1 }} />
             <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>No hay proyectos registrados en el sistema.</p>
             <button 
-              onClick={() => void navigate('/app/presupuesto/nuevo')}
+              onClick={handleNew}
               style={{ marginTop: '1.5rem', color: 'var(--color-primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
             >
               Comienza creando tu primer presupuesto
@@ -198,6 +212,38 @@ export default function Dashboard() {
           ))
         )}
       </section>
+
+      {showProModal && (
+        <div className={styles.limitOverlay}>
+          <div className={styles.limitCard}>
+            <div className={styles.limitIconWrap}>
+              <Crown size={48} />
+            </div>
+            <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
+            <p className={styles.limitDesc}>
+              Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
+              Mejora tu plan para gestionar tus presupuestos sin restricciones.
+            </p>
+            <div className={styles.limitActions}>
+              <button
+                type="button"
+                className={styles.limitBtnUpgrade}
+                onClick={() => void navigate('/app/suscripcion')}
+              >
+                <Crown size={18} />
+                Mejorar Mi Plan
+              </button>
+              <button
+                type="button"
+                className={styles.limitBtnBack}
+                onClick={() => setShowProModal(false)}
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

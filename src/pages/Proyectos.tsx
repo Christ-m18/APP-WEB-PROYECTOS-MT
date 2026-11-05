@@ -36,6 +36,14 @@ export default function Proyectos() {
     p.cliente.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleNew = () => {
+    if (esPlanGratis) {
+      setShowProModal(true)
+      return
+    }
+    void navigate('/app/presupuesto/nuevo')
+  }
+
   const handleEdit = (id: string) => {
     if (esPlanGratis) {
       setShowProModal(true)
@@ -75,7 +83,7 @@ export default function Proyectos() {
     <div className={styles.page}>
       <header className={styles.topBar}>
         <h1 className={styles.title}>Mis Proyectos</h1>
-        <button className={styles.btnNew} onClick={() => void navigate('/app/presupuesto/nuevo')}>
+        <button className={styles.btnNew} onClick={handleNew}>
           <Plus size={20} strokeWidth={3} /> NUEVO PRESUPUESTO
         </button>
       </header>
@@ -167,7 +175,7 @@ export default function Proyectos() {
             </div>
             <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
             <p className={styles.limitDesc}>
-              Editar y eliminar proyectos requiere el plan <strong>Pro</strong>.
+              Crear, editar y eliminar proyectos requiere el plan <strong>Pro</strong>.
               Mejora tu plan para gestionar tus presupuestos sin restricciones.
             </p>
             <div className={styles.limitActions}>
