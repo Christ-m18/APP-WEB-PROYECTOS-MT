@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProyectos, useDeleteProyecto } from '@/hooks/useProyectos'
 import { useTodaManoObra } from '@/hooks/useEstructuras'
-import { useMiSuscripcion } from '@/hooks/useSuscripcion'
+import { useMiSuscripcion, useCanCreateProyecto } from '@/hooks/useSuscripcion'
+import ProModal from '@/components/ProModal'
 import {
   Plus,
   Search,
@@ -13,7 +14,6 @@ import {
   XCircle,
   FileText,
   FolderSync,
-  Crown
 } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
@@ -26,8 +26,10 @@ export default function Proyectos() {
   const deleteMutation = useDeleteProyecto()
   const [searchTerm, setSearchTerm] = useState('')
   const [showProModal, setShowProModal] = useState(false)
+  const [proModalAction, setProModalAction] = useState<'crear' | 'editar' | 'eliminar'>('crear')
   const { data: todaManoObra = [] } = useTodaManoObra()
   const { data: suscripcionData } = useMiSuscripcion()
+  const { limiteAlcanzado } = useCanCreateProyecto(proyectos.length)
   // Permissive while loading (undefined). Only block once we know it's Free.
   const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
 
@@ -37,7 +39,8 @@ export default function Proyectos() {
   )
 
   const handleNew = () => {
-    if (esPlanGratis) {
+    if (limiteAlcanzado) {
+      setProModalAction('crear')
       setShowProModal(true)
       return
     }
@@ -46,6 +49,7 @@ export default function Proyectos() {
 
   const handleEdit = (id: string) => {
     if (esPlanGratis) {
+      setProModalAction('editar')
       setShowProModal(true)
       return
     }
@@ -54,6 +58,7 @@ export default function Proyectos() {
 
   const handleDelete = async (id: string, nombre: string) => {
     if (esPlanGratis) {
+      setProModalAction('eliminar')
       setShowProModal(true)
       return
     }
@@ -168,35 +173,25 @@ export default function Proyectos() {
       </div>
 
       {showProModal && (
-        <div className={styles.limitOverlay}>
-          <div className={styles.limitCard}>
-            <div className={styles.limitIconWrap}>
-              <Crown size={48} />
-            </div>
-            <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
-            <p className={styles.limitDesc}>
-              Crear, editar y eliminar proyectos requiere el plan <strong>Pro</strong>.
-              Mejora tu plan para gestionar tus presupuestos sin restricciones.
-            </p>
-            <div className={styles.limitActions}>
-              <button
-                type="button"
-                className={styles.limitBtnUpgrade}
-                onClick={() => void navigate('/app/suscripcion')}
-              >
-                <Crown size={18} />
-                Mejorar Mi Plan
-              </button>
-              <button
-                type="button"
-                className={styles.limitBtnBack}
-                onClick={() => setShowProModal(false)}
-              >
-                Volver
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProModal
+          isOpen={showProModal}
+          onClose={() => setShowProModal(false)}
+          title="Funcionalidad Pro"
+          description={
+            proModalAction === 'crear' ? (
+              <>
+                Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan inicial gratuito.
+                Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
+                Mejora tu plan para gestionar tus presupuestos sin restricciones.
+              </>
+            ) : (
+              <>
+                Editar y eliminar proyectos requiere el plan <strong>Pro</strong>.
+                Mejora tu plan para gestionar tus presupuestos sin restricciones.
+              </>
+            )
+          }
+        />
       )}
     </div>
   )

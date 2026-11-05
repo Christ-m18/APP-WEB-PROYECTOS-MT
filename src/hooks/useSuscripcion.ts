@@ -57,3 +57,26 @@ export function useCrearPago() {
     },
   })
 }
+
+export function useCanCreateProyecto(proyectosCount?: number) {
+  const { data: suscripcion, isLoading } = useMiSuscripcion()
+  const isPro = suscripcion?.plan?.nombre === 'Pro'
+  const proyectosUsados = Math.max(
+    suscripcion?.uso?.proyectos_usados ?? 0,
+    proyectosCount ?? 0
+  )
+  const proyectosLimite = suscripcion?.uso?.proyectos_limite ?? suscripcion?.plan?.limite_proyectos ?? 3
+
+  // Solo se bloquea si tenemos datos confirmados de que NO es Pro y ya alcanzó el límite
+  const limiteAlcanzado = !isPro && suscripcion !== undefined && proyectosLimite !== null && proyectosUsados >= proyectosLimite
+
+  return {
+    canCreate: !limiteAlcanzado,
+    limiteAlcanzado,
+    isPro,
+    proyectosUsados,
+    proyectosLimite,
+    isLoading,
+  }
+}
+

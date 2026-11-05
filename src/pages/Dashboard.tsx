@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useProyectos } from '@/hooks/useProyectos'
 import { useTodaManoObra } from '@/hooks/useEstructuras'
 import { usePerfil } from '@/hooks/usePerfil'
-import { useMiSuscripcion } from '@/hooks/useSuscripcion'
+import { useMiSuscripcion, useCanCreateProyecto } from '@/hooks/useSuscripcion'
 import { formatRD, calcularTotalProyecto } from '@/utils/calculos'
 import { VOLTAJES } from '@/data/estructuras_sie'
+import ProModal from '@/components/ProModal'
 import {
   Plus,
   Briefcase,
@@ -17,7 +18,6 @@ import {
   History,
   Users,
   Zap,
-  Crown
 } from 'lucide-react'
 import styles from './Dashboard.module.css'
 
@@ -28,12 +28,10 @@ export default function Dashboard() {
   const { data: perfil } = usePerfil()
   const { data: miSuscripcion } = useMiSuscripcion()
   const [showProModal, setShowProModal] = useState(false)
-
-  // Permissive while loading (undefined). Only block once we know it's not Pro.
-  const esPlanGratis = miSuscripcion !== undefined && miSuscripcion.plan?.nombre !== 'Pro'
+  const { limiteAlcanzado } = useCanCreateProyecto(proyectos.length)
 
   const handleNew = () => {
-    if (esPlanGratis) {
+    if (limiteAlcanzado) {
       setShowProModal(true)
       return
     }
@@ -214,35 +212,17 @@ export default function Dashboard() {
       </section>
 
       {showProModal && (
-        <div className={styles.limitOverlay}>
-          <div className={styles.limitCard}>
-            <div className={styles.limitIconWrap}>
-              <Crown size={48} />
-            </div>
-            <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
-            <p className={styles.limitDesc}>
-              Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
-              Mejora tu plan para gestionar tus presupuestos sin restricciones.
-            </p>
-            <div className={styles.limitActions}>
-              <button
-                type="button"
-                className={styles.limitBtnUpgrade}
-                onClick={() => void navigate('/app/suscripcion')}
-              >
-                <Crown size={18} />
-                Mejorar Mi Plan
-              </button>
-              <button
-                type="button"
-                className={styles.limitBtnBack}
-                onClick={() => setShowProModal(false)}
-              >
-                Volver
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProModal
+          isOpen={showProModal}
+          onClose={() => setShowProModal(false)}
+          title="Funcionalidad Pro"
+          description={
+            <>
+              Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan inicial gratuito.
+              Mejora tu plan para crear presupuestos sin restricciones.
+            </>
+          }
+        />
       )}
     </div>
   )

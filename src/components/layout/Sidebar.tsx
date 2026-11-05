@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
+import { useCanCreateProyecto } from '@/hooks/useSuscripcion'
+import ProModal from '@/components/ProModal'
 import {
   LayoutDashboard,
   FolderSearch,
@@ -29,11 +32,23 @@ interface SidebarProps {
 
 export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu }: SidebarProps) {
   const navigate = useNavigate()
+  const [showProModal, setShowProModal] = useState(false)
+  const { limiteAlcanzado } = useCanCreateProyecto()
 
   const handleLogout = async () => {
     queryClient.clear()
     await supabase.auth.signOut()
     void navigate('/')
+  }
+
+  const handleNavClick = (e: React.MouseEvent, to: string) => {
+    if (to === '/app/presupuesto/nuevo' && limiteAlcanzado) {
+      e.preventDefault()
+      setShowProModal(true)
+      if (closeMobileMenu) closeMobileMenu()
+      return
+    }
+    if (closeMobileMenu) closeMobileMenu()
   }
 
   return (
@@ -53,6 +68,7 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
             key={to}
             to={to}
             end={end}
+            onClick={(e) => handleNavClick(e, to)}
             className={({ isActive }) =>
               [styles.link, isActive ? styles.active : ''].join(' ')
             }
@@ -72,6 +88,19 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
         </button>
       </div>
     </aside>
+
+    <ProModal
+      isOpen={showProModal}
+      onClose={() => setShowProModal(false)}
+      title="Funcionalidad Pro"
+      description={
+        <>
+          Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan inicial gratuito.
+          Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
+          Mejora tu plan para gestionar tus presupuestos sin restricciones.
+        </>
+      }
+    />
     </>
   )
 }
