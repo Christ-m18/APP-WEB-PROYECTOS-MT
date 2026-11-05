@@ -37,8 +37,8 @@ export default function NuevoPresupuesto() {
 
   // Permissive while loading (undefined). Only block once data confirms Free plan.
   const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
-  // Block edit of saved projects for Free users. Creating new is always allowed.
-  const editBlockedByPlan = isEditing && esPlanGratis
+  // Block both creating and editing for Free users.
+  const blockedByPlan = esPlanGratis
 
   const [partidas, setPartidas] = useState<Omit<Partida, 'id' | 'proyecto_id'>[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('partidas')
@@ -934,8 +934,8 @@ export default function NuevoPresupuesto() {
         </div>
       )}
 
-      {/* ── Edit blocked for Free plan ───────────────────────── */}
-      {editBlockedByPlan && (
+      {/* ── Blocked for Free plan (create & edit) ────────────── */}
+      {blockedByPlan && (
         <div className={styles.limitOverlay}>
           <div className={styles.limitCard}>
             <div className={styles.limitIconWrap}>
@@ -943,8 +943,8 @@ export default function NuevoPresupuesto() {
             </div>
             <h2 className={styles.limitTitle}>Funcionalidad Pro</h2>
             <p className={styles.limitDesc}>
-              Editar proyectos guardados requiere el plan <strong>Pro</strong>.
-              Mejora tu plan para modificar y gestionar tus presupuestos sin restricciones.
+              Crear y editar presupuestos requiere el plan <strong>Pro</strong>.
+              Mejora tu plan para gestionar tus presupuestos sin restricciones.
             </p>
             <div className={styles.limitActions}>
               <button
