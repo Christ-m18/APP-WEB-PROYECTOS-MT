@@ -3,12 +3,16 @@
   RewriteBase /
   RewriteRule ^index\.html$ - [L]
 
-  # No redirigir assets faltantes a index.html (evita que el navegador reciba HTML al buscar un script JS)
+  # Si el archivo o directorio existe en el servidor, servirlo directamente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Si un recurso dentro de /assets/ no existe, devolver 404 (evita entregar HTML ante scripts JS/CSS faltantes)
   RewriteCond %{REQUEST_URI} ^/assets/
   RewriteRule ^ - [R=404,L]
 
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # Rutas de la SPA: redirigir a index.html
   RewriteRule . /index.html [L]
 </IfModule>
 
