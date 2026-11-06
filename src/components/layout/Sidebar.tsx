@@ -33,6 +33,7 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu }: SidebarProps) {
   const navigate = useNavigate()
   const [showProModal, setShowProModal] = useState(false)
+  const [modalTarget, setModalTarget] = useState<'presupuesto' | 'estructuras'>('presupuesto')
   const { limiteAlcanzado } = useCanCreateProyecto()
 
   const handleLogout = async () => {
@@ -42,8 +43,9 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
   }
 
   const handleNavClick = (e: React.MouseEvent, to: string) => {
-    if (to === '/app/presupuesto/nuevo' && limiteAlcanzado) {
+    if ((to === '/app/presupuesto/nuevo' || to === '/app/resoluciones') && limiteAlcanzado) {
       e.preventDefault()
+      setModalTarget(to === '/app/resoluciones' ? 'estructuras' : 'presupuesto')
       setShowProModal(true)
       if (closeMobileMenu) closeMobileMenu()
       return
@@ -94,11 +96,18 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
       onClose={() => setShowProModal(false)}
       title="Funcionalidad Pro"
       description={
-        <>
-          Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan inicial gratuito.
-          Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
-          Mejora tu plan para gestionar tus presupuestos sin restricciones.
-        </>
+        modalTarget === 'estructuras' ? (
+          <>
+            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong> una vez alcanzado el límite de tu plan inicial gratuito.
+            Mejora tu plan para acceder al catálogo completo y gestionar tus presupuestos sin restricciones.
+          </>
+        ) : (
+          <>
+            Has alcanzado el límite de <strong>3 proyectos</strong> de tu plan inicial gratuito.
+            Crear nuevos presupuestos requiere el plan <strong>Pro</strong>.
+            Mejora tu plan para gestionar tus presupuestos sin restricciones.
+          </>
+        )
       }
     />
     </>

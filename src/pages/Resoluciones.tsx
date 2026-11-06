@@ -1,6 +1,9 @@
 import { useState, useMemo, Fragment } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEstructuras, useMaterialesPorEstructura } from '@/hooks/useEstructuras'
+import { usePlanStatus } from '@/hooks/useSuscripcion'
+import ProModal from '@/components/ProModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRD } from '@/utils/calculos'
 import { Search, ChevronDown, ChevronUp, Package, Box } from 'lucide-react'
@@ -74,6 +77,8 @@ function MaterialesDetalle({ estructura }: { estructura: string }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Resoluciones() {
+  const navigate = useNavigate()
+  const { limiteAlcanzado } = usePlanStatus()
   const { data: estructuras = [], isLoading } = useEstructuras()
   const [filtro, setFiltro] = useState('')
   const [expandida, setExpandida] = useState<string | null>(null)
@@ -187,6 +192,20 @@ export default function Resoluciones() {
         </table>
         </div>
       </div>
+
+      <ProModal
+        isOpen={limiteAlcanzado}
+        onClose={() => void navigate('/app/proyectos')}
+        onBack={() => void navigate('/app/proyectos')}
+        title="Funcionalidad Pro"
+        backText="Volver a Proyectos"
+        description={
+          <>
+            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong> una vez alcanzado el límite de tu plan inicial gratuito.
+            Mejora tu plan para acceder al catálogo completo y gestionar tus presupuestos sin restricciones.
+          </>
+        }
+      />
     </div>
   )
 }

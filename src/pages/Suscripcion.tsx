@@ -248,6 +248,10 @@ export default function Suscripcion() {
                   <Check size={16} className={styles.featureIcon} />
                   Exportar PDF
                 </li>
+                <li className={styles.featureItem}>
+                  <Check size={16} className={styles.featureIcon} />
+                  {isPro ? 'Catálogo Estructuras SIE ilimitado' : 'Catálogo Estructuras SIE (inicial)'}
+                </li>
                 {isPro && (
                   <>
                     <li className={styles.featureItem}>

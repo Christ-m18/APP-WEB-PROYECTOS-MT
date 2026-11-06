@@ -80,3 +80,6 @@ export function useCanCreateProyecto(proyectosCount?: number) {
   }
 }
 
+export const usePlanStatus = useCanCreateProyecto
+
+
