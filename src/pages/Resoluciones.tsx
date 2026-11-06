@@ -2,7 +2,7 @@ import { useState, useMemo, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEstructuras, useMaterialesPorEstructura } from '@/hooks/useEstructuras'
-import { usePlanStatus } from '@/hooks/useSuscripcion'
+import { useMiSuscripcion } from '@/hooks/useSuscripcion'
 import ProModal from '@/components/ProModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRD } from '@/utils/calculos'
@@ -78,7 +78,8 @@ function MaterialesDetalle({ estructura }: { estructura: string }) {
 
 export default function Resoluciones() {
   const navigate = useNavigate()
-  const { limiteAlcanzado } = usePlanStatus()
+  const { data: suscripcionData } = useMiSuscripcion()
+  const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
   const { data: estructuras = [], isLoading } = useEstructuras()
   const [filtro, setFiltro] = useState('')
   const [expandida, setExpandida] = useState<string | null>(null)
@@ -194,14 +195,14 @@ export default function Resoluciones() {
       </div>
 
       <ProModal
-        isOpen={limiteAlcanzado}
+        isOpen={esPlanGratis}
         onClose={() => void navigate('/app/proyectos')}
         onBack={() => void navigate('/app/proyectos')}
         title="Funcionalidad Pro"
         backText="Volver a Proyectos"
         description={
           <>
-            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong> una vez alcanzado el límite de tu plan inicial gratuito.
+            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong>.
             Mejora tu plan para acceder al catálogo completo y gestionar tus presupuestos sin restricciones.
           </>
         }

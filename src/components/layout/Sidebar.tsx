@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { queryClient } from '@/lib/queryClient'
-import { useCanCreateProyecto } from '@/hooks/useSuscripcion'
+import { useMiSuscripcion, useCanCreateProyecto } from '@/hooks/useSuscripcion'
 import ProModal from '@/components/ProModal'
 import {
   LayoutDashboard,
@@ -33,8 +33,11 @@ interface SidebarProps {
 export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu }: SidebarProps) {
   const navigate = useNavigate()
   const [showProModal, setShowProModal] = useState(false)
-  const [modalTarget, setModalTarget] = useState<'presupuesto' | 'estructuras'>('presupuesto')
+  const [modalTarget, setModalTarget] = useState<'presupuesto' | 'estructuras'>('estructuras')
+  const { data: suscripcionData } = useMiSuscripcion()
   const { limiteAlcanzado } = useCanCreateProyecto()
+
+  const esPlanGratis = suscripcionData !== undefined && suscripcionData.plan?.nombre !== 'Pro'
 
   const handleLogout = async () => {
     queryClient.clear()
@@ -43,13 +46,22 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
   }
 
   const handleNavClick = (e: React.MouseEvent, to: string) => {
-    if ((to === '/app/presupuesto/nuevo' || to === '/app/resoluciones') && limiteAlcanzado) {
+    if (to === '/app/resoluciones' && esPlanGratis) {
       e.preventDefault()
-      setModalTarget(to === '/app/resoluciones' ? 'estructuras' : 'presupuesto')
+      setModalTarget('estructuras')
       setShowProModal(true)
       if (closeMobileMenu) closeMobileMenu()
       return
     }
+
+    if (to === '/app/presupuesto/nuevo' && limiteAlcanzado) {
+      e.preventDefault()
+      setModalTarget('presupuesto')
+      setShowProModal(true)
+      if (closeMobileMenu) closeMobileMenu()
+      return
+    }
+
     if (closeMobileMenu) closeMobileMenu()
   }
 
@@ -98,7 +110,7 @@ export default function Sidebar({ isCollapsed, isMobileMenuOpen, closeMobileMenu
       description={
         modalTarget === 'estructuras' ? (
           <>
-            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong> una vez alcanzado el límite de tu plan inicial gratuito.
+            Consultar el catálogo de <strong>Estructuras SIE</strong> requiere el plan <strong>Pro</strong>.
             Mejora tu plan para acceder al catálogo completo y gestionar tus presupuestos sin restricciones.
           </>
         ) : (
