@@ -11,6 +11,16 @@ import '@/styles/global.css'
 
 void initSentry()
 
+// Recarga automática al detectar fallo de carga de chunks dinámicos (tras un nuevo deploy)
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  const reloadKey = 'vite_preload_reload'
+  if (!sessionStorage.getItem(reloadKey)) {
+    sessionStorage.setItem(reloadKey, 'true')
+    window.location.reload()
+  }
+})
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
